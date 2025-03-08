@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
 import 'package:tictask/features/projects/models/project.dart';
 import 'package:tictask/features/projects/repositories/project_repository.dart';
+import 'package:tictask/features/tasks/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
 import 'package:tictask/features/tasks/repositories/task_repository.dart';
+import 'package:tictask/features/tasks/widgets/task_form_sheet.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key, this.showNavBar = true});
@@ -36,6 +39,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
     super.initState();
     _loadProjects();
     _loadTasks(); // Add this line to load tasks when the screen initializes
+
+    // Add a listener to the TaskBloc to reload tasks when they change
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final taskBloc = context.read<TaskBloc>();
+      taskBloc.stream.listen((state) {
+        if (state is TaskLoaded || state is TaskActionSuccess) {
+          _loadTasks();
+        }
+      });
+    });
   }
 
   Future<void> _loadProjects() async {
@@ -68,6 +81,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   // Add this method to load tasks
   Future<void> _loadTasks() async {
+    print('Loading tasks...');
     setState(() {
       _isLoading = true;
     });
@@ -78,11 +92,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
       final endDate = now.add(const Duration(days: 30));
       final tasks = await _taskRepository.getTasksInDateRange(now, endDate);
 
+      print('Loaded ${tasks.length} tasks');
+      for (final task in tasks) {
+        print(
+          'Task: ${task.id}, ${task.title}, ${DateTime.fromMillisecondsSinceEpoch(task.startDate)}',
+        );
+      }
+
       setState(() {
         _tasks = tasks;
         _isLoading = false;
       });
     } catch (e) {
+      print('Error loading tasks: $e');
       setState(() {
         _isLoading = false;
       });
@@ -92,6 +114,56 @@ class _CalendarScreenState extends State<CalendarScreen> {
         );
       }
     }
+  }
+
+  // Add this method to show the task form for editing
+  void _showEditTaskForm(Task task) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => TaskFormSheet(
+        task: task,
+        onComplete: () {
+          Navigator.of(context).pop();
+          _loadTasks(); // Reload tasks after editing
+        },
+      ),
+    );
+  }
+
+  // Add this method to show the task form for creating a new task
+  void _showCreateTaskForm(
+    DateTime date,
+    DateTime? startTime,
+    DateTime? endTime,
+  ) {
+    // Create default start and end times if not provided
+    final start = startTime ??
+        DateTime(date.year, date.month, date.day, DateTime.now().hour);
+    final end = endTime ?? start.add(const Duration(hours: 1));
+
+    print('Creating new task with date: $date, start: $start, end: $end');
+
+    // First create a task with the selected date and time
+    final taskBloc = context.read<TaskBloc>();
+
+    // Create a task with the BLoC
+    final task = Task.create(
+      title: 'New Task', // Default title that user can change
+      startDate: start.millisecondsSinceEpoch,
+      endDate: end.millisecondsSinceEpoch,
+    );
+
+    // Save the task to the database
+    _taskRepository.saveTask(task).then((_) {
+      // After the task is saved, open the form to edit it
+      _showEditTaskForm(task);
+
+      // Also reload the tasks to update the calendar
+      _loadTasks();
+    });
   }
 
   @override
@@ -153,8 +225,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
               ),
               appointmentBuilder: _buildAppointment,
+              onTap: _handleCalendarTap, // Add this line to handle taps
             ),
     );
+  }
+
+  // Add this method to handle calendar taps
+  void _handleCalendarTap(CalendarTapDetails details) {
+    if (details.targetElement == CalendarElement.appointment) {
+      // User tapped on an existing task
+      final task = details.appointments![0] as Task;
+      _showEditTaskForm(task);
+    } else if (details.targetElement == CalendarElement.calendarCell) {
+      // User tapped on an empty cell or time slot
+      final date = details.date!;
+
+      // Only show the task form in day and week views
+      if (_calendarView == CalendarView.day ||
+          _calendarView == CalendarView.week) {
+        // For day or week view, we get the exact time slot
+        final endTime = date.add(const Duration(hours: 1));
+        _showCreateTaskForm(date, date, endTime);
+      }
+      // Do nothing for month view
+    }
   }
 
   Widget _buildAppointment(
