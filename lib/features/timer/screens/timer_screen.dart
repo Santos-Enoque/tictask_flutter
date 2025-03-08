@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:tictask/app/routes/routes.dart';
 import 'package:tictask/app/theme/dimensions.dart';
 import 'package:tictask/app/theme/text_styles.dart';
 import 'package:tictask/features/timer/bloc/timer_bloc.dart';
@@ -27,23 +29,10 @@ class _TimerScreenState extends State<TimerScreen> {
         title: const Text('TicTask Timer'),
         actions: [
           IconButton(
-            icon: Icon(
-              Theme.of(context).brightness == Brightness.dark
-                  ? Icons.light_mode
-                  : Icons.dark_mode,
-            ),
+            icon: const Icon(Icons.settings),
             onPressed: () {
-              // Toggle theme
-              final newThemeMode =
-                  Theme.of(context).brightness == Brightness.dark
-                      ? ThemeMode.light
-                      : ThemeMode.dark;
-              // Replace with proper theme switching
-              // This depends on how theme is managed in your app
-              // Example if using a ThemeProvider:
-              // Provider.of<ThemeProvider>(context, listen: false).setThemeMode(newThemeMode);
-              // Or if using a ThemeBloc:
-              // context.read<ThemeBloc>().add(ThemeChanged(newThemeMode));
+              // Navigate to settings screen
+              context.push(Routes.settings);
             },
           ),
         ],
@@ -126,6 +115,30 @@ class _TimerScreenState extends State<TimerScreen> {
               ),
             ),
           );
+        },
+      ),
+      // Optional: Add a bottom navigation bar
+      bottomNavigationBar: BottomNavigationBar(
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.timer),
+            label: 'Timer',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.task_alt),
+            label: 'Tasks',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
+        ],
+        onTap: (index) {
+          if (index == 2) {
+            // Navigate to settings
+            context.push(Routes.settings);
+          }
+          // Handle other navigation options as needed
         },
       ),
     );
