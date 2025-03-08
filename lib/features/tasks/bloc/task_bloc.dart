@@ -77,6 +77,7 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
         ongoing: event.ongoing,
         hasReminder: event.hasReminder,
         reminderTime: event.reminderTime?.millisecondsSinceEpoch,
+        projectId: event.projectId,
       );
       await _taskRepository.saveTask(task);
       final tasks = await _taskRepository.getAllTasks();
@@ -105,6 +106,7 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
         ongoing: event.ongoing,
         hasReminder: event.hasReminder,
         reminderTime: event.reminderTime?.millisecondsSinceEpoch,
+        projectId: event.projectId,
       );
 
       await _taskRepository.saveTask(updatedTask);

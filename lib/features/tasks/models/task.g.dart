@@ -31,13 +31,14 @@ class TaskAdapter extends TypeAdapter<Task> {
       estimatedPomodoros: fields[8] as int?,
       hasReminder: fields[12] as bool,
       reminderTime: fields[13] as int?,
+      projectId: fields[14] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, Task obj) {
     writer
-      ..writeByte(14)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -65,7 +66,9 @@ class TaskAdapter extends TypeAdapter<Task> {
       ..writeByte(12)
       ..write(obj.hasReminder)
       ..writeByte(13)
-      ..write(obj.reminderTime);
+      ..write(obj.reminderTime)
+      ..writeByte(14)
+      ..write(obj.projectId);
   }
 
   @override

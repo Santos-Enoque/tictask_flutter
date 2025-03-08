@@ -1,6 +1,9 @@
 import 'package:get_it/get_it.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:tictask/app/constants/enums.dart';
+import 'package:tictask/features/projects/bloc/project_bloc.dart';
+import 'package:tictask/features/projects/models/project.dart';
+import 'package:tictask/features/projects/repositories/project_repository.dart';
 import 'package:tictask/features/settings/repositories/settings_repository.dart';
 import 'package:tictask/features/tasks/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
@@ -23,12 +26,17 @@ Future<void> init() async {
   await taskRepository.init();
   sl.registerLazySingleton(() => taskRepository);
 
+  final projectRepository = ProjectRepository();
+  await projectRepository.init();
+  sl.registerLazySingleton(() => projectRepository);
+
   sl.registerLazySingleton<SettingsRepository>(SettingsRepository.new);
   await sl<SettingsRepository>().init(); // Initialize the repository
 
   // Register BLoCs
   sl.registerFactory<TimerBloc>(() => TimerBloc(timerRepository: sl()));
   sl.registerFactory(() => TaskBloc(taskRepository: sl()));
+  sl.registerFactory(() => ProjectBloc(projectRepository: sl()));
 
   // Register services/utilities
   // ... will be added as needed
@@ -68,6 +76,11 @@ Future<void> _registerHiveAdapters() async {
     }
     if (!Hive.isAdapterRegistered(3)) {
       Hive.registerAdapter(TimerStateModelAdapter());
+    }
+
+    // Register project adapter
+    if (!Hive.isAdapterRegistered(11)) {
+      Hive.registerAdapter(ProjectAdapter());
     }
 
     // Register task adapter last to avoid conflicts

@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:tictask/app/widgets/app_scaffold.dart';
+import 'package:tictask/features/projects/bloc/project_bloc.dart';
+import 'package:tictask/features/projects/models/project.dart';
 import 'package:tictask/features/tasks/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
 
@@ -28,6 +30,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   DateTime? _reminderTime;
   bool _isLoading = true;
   Task? _task;
+  String _selectedProjectId = 'inbox';
+  List<Project> _projects = [];
 
   @override
   void initState() {
@@ -48,6 +52,9 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     } else {
       _isLoading = false;
     }
+
+    // Load available projects
+    _loadProjects();
   }
 
   Future<void> _loadTask() async {
@@ -85,6 +92,14 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           ? DateTime.fromMillisecondsSinceEpoch(task.reminderTime!)
           : null;
       _isLoading = false;
+    });
+  }
+
+  Future<void> _loadProjects() async {
+    final projects =
+        await context.read<ProjectBloc>().repository.getAllProjects();
+    setState(() {
+      _projects = projects;
     });
   }
 
@@ -149,9 +164,9 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                       ),
                       keyboardType: TextInputType.number,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     _buildDateSelector(),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     _buildTimeRangeSelector(),
                     const SizedBox(height: 16),
                     SwitchListTile(
@@ -192,6 +207,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                       _buildReminderSelector(),
                     ],
                     const SizedBox(height: 24),
+                    _buildProjectSelector(),
+                    const SizedBox(height: 24),
                     ElevatedButton(
                       onPressed: _saveTask,
                       child: Text(
@@ -208,78 +225,85 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
   Widget _buildDateSelector() {
     final dateFormat = DateFormat('EEEE, MMMM d, yyyy');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Task Date',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        InkWell(
-          onTap: () async {
-            await _showCupertinoDatePicker();
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: ListTile(
-              leading: const Icon(Icons.calendar_today),
-              title: Text(dateFormat.format(_taskDate)),
-              trailing: const Icon(Icons.arrow_drop_down),
-            ),
-          ),
-        ),
-      ],
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: ListTile(
+        leading: const Icon(Icons.calendar_today),
+        title: const Text('Task Date'),
+        subtitle: Text(dateFormat.format(_taskDate)),
+        trailing: const Icon(Icons.arrow_drop_down),
+        onTap: () async {
+          await _showCupertinoDatePicker();
+        },
+      ),
     );
   }
 
   Future<void> _showCupertinoDatePicker() async {
     DateTime? pickedDate = _taskDate;
 
-    await showCupertinoModalPopup(
+    await showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (BuildContext context) {
         return Container(
-          height: 300,
-          color: CupertinoColors.systemBackground.resolveFrom(context),
+          height: 400,
+          padding: const EdgeInsets.all(16),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                height: 40,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    CupertinoButton(
-                      child: const Text('Cancel'),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Select Task Date',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
-                    CupertinoButton(
-                      child: const Text('Done'),
-                      onPressed: () {
-                        setState(() {
-                          _taskDate = pickedDate!;
-                        });
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
               ),
               const Divider(),
               Expanded(
                 child: CupertinoDatePicker(
                   initialDateTime: _taskDate,
                   mode: CupertinoDatePickerMode.date,
-                  minimumDate: DateTime(2020),
-                  maximumDate: DateTime(2030),
+                  minimumDate: DateTime.now(),
+                  maximumDate:
+                      DateTime.now().add(const Duration(days: 365 * 2)),
                   onDateTimeChanged: (DateTime newDate) {
                     pickedDate = newDate;
                   },
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _taskDate = pickedDate!;
+                    });
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text(
+                    'Confirm Date',
+                    style: TextStyle(fontSize: 16),
+                  ),
                 ),
               ),
             ],
@@ -294,69 +318,46 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Task Duration (Same Day)',
+          'Task Time',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-            child: Column(
-              children: [
-                // Start Time
-                ListTile(
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: ListTile(
                   leading: const Icon(Icons.play_circle_outline),
                   title: const Text('Start Time'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _startTime.format(context),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.access_time),
-                    ],
-                  ),
+                  subtitle: Text(_startTime.format(context)),
                   onTap: () async {
                     await _showCupertinoTimePicker(isStartTime: true);
                   },
                 ),
-
-                const Divider(height: 1),
-
-                // End Time
-                ListTile(
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: ListTile(
                   leading: const Icon(Icons.stop_circle_outlined),
                   title: const Text('End Time'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _endTime.format(context),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.access_time),
-                    ],
-                  ),
+                  subtitle: Text(_endTime.format(context)),
                   onTap: () async {
                     await _showCupertinoTimePicker(isStartTime: false);
                   },
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ],
     );
@@ -373,76 +374,45 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     );
     DateTime? pickedDateTime = initialDateTime;
 
-    await showCupertinoModalPopup(
+    await showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (BuildContext context) {
         return Container(
-          height: 300,
-          color: CupertinoColors.systemBackground.resolveFrom(context),
+          height: 400,
+          padding: const EdgeInsets.all(16),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                height: 40,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    CupertinoButton(
-                      child: const Text('Cancel'),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    isStartTime ? 'Select Start Time' : 'Select End Time',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
-                    CupertinoButton(
-                      child: const Text('Done'),
-                      onPressed: () {
-                        if (pickedDateTime != null) {
-                          final newTimeOfDay = TimeOfDay(
-                            hour: pickedDateTime!.hour,
-                            minute: pickedDateTime!.minute,
-                          );
-
-                          setState(() {
-                            if (isStartTime) {
-                              _startTime = newTimeOfDay;
-                              // Ensure end time is after start time
-                              if (_endTime.hour < _startTime.hour ||
-                                  (_endTime.hour == _startTime.hour &&
-                                      _endTime.minute < _startTime.minute)) {
-                                _endTime = TimeOfDay(
-                                  hour: (_startTime.hour + 1) % 24,
-                                  minute: _startTime.minute,
-                                );
-                              }
-                            } else {
-                              // Validate that end time is after start time
-                              final startDateTime = DateTime(
-                                _taskDate.year,
-                                _taskDate.month,
-                                _taskDate.day,
-                                _startTime.hour,
-                                _startTime.minute,
-                              );
-                              if (pickedDateTime!.isBefore(startDateTime)) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'End time must be after start time',
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                _endTime = newTimeOfDay;
-                              }
-                            }
-                          });
-                        }
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
               ),
               const Divider(),
+              const SizedBox(height: 8),
+              Text(
+                'Date: ${DateFormat('EEEE, MMMM d, yyyy').format(_taskDate)}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 16),
               Expanded(
                 child: CupertinoDatePicker(
                   initialDateTime: initialDateTime,
@@ -451,6 +421,65 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   onDateTimeChanged: (DateTime newDateTime) {
                     pickedDateTime = newDateTime;
                   },
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  onPressed: () {
+                    if (pickedDateTime != null) {
+                      final newTimeOfDay = TimeOfDay(
+                        hour: pickedDateTime!.hour,
+                        minute: pickedDateTime!.minute,
+                      );
+
+                      if (isStartTime) {
+                        setState(() {
+                          _startTime = newTimeOfDay;
+                          // Ensure end time is after start time
+                          if (_endTime.hour < _startTime.hour ||
+                              (_endTime.hour == _startTime.hour &&
+                                  _endTime.minute < _startTime.minute)) {
+                            _endTime = TimeOfDay(
+                              hour: (_startTime.hour + 1) % 24,
+                              minute: _startTime.minute,
+                            );
+                          }
+                        });
+                      } else {
+                        // Validate that end time is after start time
+                        final startDateTime = DateTime(
+                          _taskDate.year,
+                          _taskDate.month,
+                          _taskDate.day,
+                          _startTime.hour,
+                          _startTime.minute,
+                        );
+                        if (pickedDateTime!.isBefore(startDateTime)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'End time must be after start time',
+                              ),
+                            ),
+                          );
+                        } else {
+                          setState(() {
+                            _endTime = newTimeOfDay;
+                          });
+                        }
+                      }
+                    }
+                    Navigator.of(context).pop();
+                  },
+                  child: Text(
+                    'Confirm ${isStartTime ? 'Start' : 'End'} Time',
+                    style: const TextStyle(fontSize: 16),
+                  ),
                 ),
               ),
             ],
@@ -525,55 +554,34 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     final initialDateTime = _reminderTime ?? DateTime.now();
     DateTime? pickedDate = initialDateTime;
 
-    await showCupertinoModalPopup(
+    await showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (BuildContext context) {
         return Container(
-          height: 300,
-          color: CupertinoColors.systemBackground.resolveFrom(context),
+          height: 400,
+          padding: const EdgeInsets.all(16),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                height: 40,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    CupertinoButton(
-                      child: const Text('Cancel'),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Select Reminder Date',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
-                    CupertinoButton(
-                      child: const Text('Done'),
-                      onPressed: () {
-                        if (_reminderTime != null) {
-                          setState(() {
-                            _reminderTime = DateTime(
-                              pickedDate!.year,
-                              pickedDate!.month,
-                              pickedDate!.day,
-                              _reminderTime!.hour,
-                              _reminderTime!.minute,
-                            );
-                          });
-                        } else {
-                          final now = DateTime.now();
-                          setState(() {
-                            _reminderTime = DateTime(
-                              pickedDate!.year,
-                              pickedDate!.month,
-                              pickedDate!.day,
-                              now.hour,
-                              now.minute,
-                            );
-                          });
-                        }
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
               ),
               const Divider(),
               Expanded(
@@ -587,6 +595,44 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   },
                 ),
               ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  onPressed: () {
+                    if (_reminderTime != null) {
+                      setState(() {
+                        _reminderTime = DateTime(
+                          pickedDate!.year,
+                          pickedDate!.month,
+                          pickedDate!.day,
+                          _reminderTime!.hour,
+                          _reminderTime!.minute,
+                        );
+                      });
+                    } else {
+                      final now = DateTime.now();
+                      setState(() {
+                        _reminderTime = DateTime(
+                          pickedDate!.year,
+                          pickedDate!.month,
+                          pickedDate!.day,
+                          now.hour,
+                          now.minute,
+                        );
+                      });
+                    }
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text(
+                    'Confirm Date',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -598,57 +644,47 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     final initialDateTime = _reminderTime ?? DateTime.now();
     DateTime? pickedTime = initialDateTime;
 
-    await showCupertinoModalPopup(
+    await showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (BuildContext context) {
         return Container(
-          height: 300,
-          color: CupertinoColors.systemBackground.resolveFrom(context),
+          height: 400,
+          padding: const EdgeInsets.all(16),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                height: 40,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    CupertinoButton(
-                      child: const Text('Cancel'),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Select Reminder Time',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
-                    CupertinoButton(
-                      child: const Text('Done'),
-                      onPressed: () {
-                        if (_reminderTime != null) {
-                          setState(() {
-                            _reminderTime = DateTime(
-                              _reminderTime!.year,
-                              _reminderTime!.month,
-                              _reminderTime!.day,
-                              pickedTime!.hour,
-                              pickedTime!.minute,
-                            );
-                          });
-                        } else {
-                          final now = DateTime.now();
-                          setState(() {
-                            _reminderTime = DateTime(
-                              now.year,
-                              now.month,
-                              now.day,
-                              pickedTime!.hour,
-                              pickedTime!.minute,
-                            );
-                          });
-                        }
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
               ),
               const Divider(),
+              if (_reminderTime != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Date: ${DateFormat('EEEE, MMMM d, yyyy').format(_reminderTime!)}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
               Expanded(
                 child: CupertinoDatePicker(
                   initialDateTime: initialDateTime,
@@ -656,6 +692,128 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   use24hFormat: MediaQuery.of(context).alwaysUse24HourFormat,
                   onDateTimeChanged: (DateTime newTime) {
                     pickedTime = newTime;
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  onPressed: () {
+                    if (_reminderTime != null) {
+                      setState(() {
+                        _reminderTime = DateTime(
+                          _reminderTime!.year,
+                          _reminderTime!.month,
+                          _reminderTime!.day,
+                          pickedTime!.hour,
+                          pickedTime!.minute,
+                        );
+                      });
+                    } else {
+                      final now = DateTime.now();
+                      setState(() {
+                        _reminderTime = DateTime(
+                          now.year,
+                          now.month,
+                          now.day,
+                          pickedTime!.hour,
+                          pickedTime!.minute,
+                        );
+                      });
+                    }
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text(
+                    'Confirm Time',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProjectSelector() {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: ListTile(
+        leading: const Icon(Icons.folder),
+        title: const Text('Project'),
+        subtitle: _projects.isEmpty
+            ? const Text('Loading projects...')
+            : Text(
+                _projects
+                    .firstWhere(
+                      (p) => p.id == _selectedProjectId,
+                      orElse: Project.inbox,
+                    )
+                    .name,
+              ),
+        trailing: const Icon(Icons.arrow_drop_down),
+        onTap: _showProjectSelectionDialog,
+      ),
+    );
+  }
+
+  Future<void> _showProjectSelectionDialog() async {
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Select Project',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const Divider(),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _projects.length,
+                  itemBuilder: (context, index) {
+                    final project = _projects[index];
+                    return ListTile(
+                      leading: Icon(
+                        Icons.circle,
+                        color: Color(project.color),
+                      ),
+                      title: Text(project.name),
+                      selected: _selectedProjectId == project.id,
+                      onTap: () {
+                        setState(() {
+                          _selectedProjectId = project.id;
+                        });
+                        Navigator.of(context).pop();
+                      },
+                    );
                   },
                 ),
               ),
@@ -702,6 +860,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                 ongoing: _ongoing,
                 hasReminder: _hasReminder,
                 reminderTime: _reminderTime,
+                projectId: _selectedProjectId,
               ),
             );
       } else {
@@ -718,6 +877,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                 ongoing: _ongoing,
                 hasReminder: _hasReminder,
                 reminderTime: _reminderTime,
+                projectId: _selectedProjectId,
               ),
             );
       }

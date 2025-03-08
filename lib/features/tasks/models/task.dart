@@ -22,6 +22,7 @@ class Task extends Equatable {
     this.estimatedPomodoros,
     this.hasReminder = false,
     this.reminderTime,
+    this.projectId = 'inbox',
   });
 
   // Factory method to create a new task
@@ -34,6 +35,7 @@ class Task extends Equatable {
     bool ongoing = false,
     bool hasReminder = false,
     int? reminderTime,
+    String projectId = 'inbox',
   }) {
     final now = DateTime.now().millisecondsSinceEpoch;
     return Task(
@@ -50,6 +52,7 @@ class Task extends Equatable {
       ongoing: ongoing,
       hasReminder: hasReminder,
       reminderTime: reminderTime,
+      projectId: projectId,
     );
   }
   @HiveField(0)
@@ -94,6 +97,9 @@ class Task extends Equatable {
   @HiveField(13)
   final int? reminderTime;
 
+  @HiveField(14)
+  final String projectId;
+
   // Create a copy with updated fields
   Task copyWith({
     String? title,
@@ -108,6 +114,7 @@ class Task extends Equatable {
     bool? ongoing,
     bool? hasReminder,
     int? reminderTime,
+    String? projectId,
   }) {
     return Task(
       id: id,
@@ -124,6 +131,7 @@ class Task extends Equatable {
       ongoing: ongoing ?? this.ongoing,
       hasReminder: hasReminder ?? this.hasReminder,
       reminderTime: reminderTime ?? this.reminderTime,
+      projectId: projectId ?? this.projectId,
     );
   }
 
@@ -167,5 +175,6 @@ class Task extends Equatable {
         ongoing,
         hasReminder,
         reminderTime,
+        projectId,
       ];
 }

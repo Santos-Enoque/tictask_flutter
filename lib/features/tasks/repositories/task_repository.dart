@@ -105,6 +105,21 @@ class TaskRepository {
     }
   }
 
+  // Add method to get tasks by project
+  Future<List<Task>> getTasksByProject(String projectId) async {
+    return _tasksBox.values
+        .where((task) => task.projectId == projectId)
+        .toList();
+  }
+
+  // Update tasks when a project is deleted (move them to Inbox)
+  Future<void> moveTasksToInbox(String fromProjectId) async {
+    final tasks = await getTasksByProject(fromProjectId);
+    for (final task in tasks) {
+      await saveTask(task.copyWith(projectId: 'inbox'));
+    }
+  }
+
   // Clean up resources
   Future<void> close() async {
     await _tasksBox.close();

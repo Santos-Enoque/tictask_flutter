@@ -1,9 +1,13 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:tictask/app/theme/colors.dart';
+import 'package:tictask/features/projects/models/project.dart';
+import 'package:tictask/features/projects/repositories/project_repository.dart';
 import 'package:tictask/features/tasks/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
+import 'package:tictask/injection_container.dart' as di;
 
 class TaskFormSheet extends StatefulWidget {
   const TaskFormSheet({
@@ -24,11 +28,15 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   late TextEditingController _estimatedPomodorosController;
+  late DateTime _taskDate;
   late DateTime _startDate;
   late DateTime _endDate;
   late bool _ongoing;
   late bool _hasReminder;
   DateTime? _reminderTime;
+  String _selectedProjectId = 'inbox';
+  List<Project> _projects = [];
+  bool _showAdvancedOptions = false;
 
   // Add focus nodes for better keyboard control
   final FocusNode _titleFocus = FocusNode();
@@ -44,6 +52,7 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
 
     // Initialize with default values
     final now = DateTime.now();
+    _taskDate = now;
     _startDate = now;
     _endDate = now.add(const Duration(hours: 1));
     _ongoing = false;
@@ -58,12 +67,21 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
           widget.task!.estimatedPomodoros?.toString() ?? '';
       _startDate = DateTime.fromMillisecondsSinceEpoch(widget.task!.startDate);
       _endDate = DateTime.fromMillisecondsSinceEpoch(widget.task!.endDate);
+      _taskDate = DateTime(
+        _startDate.year,
+        _startDate.month,
+        _startDate.day,
+      );
       _ongoing = widget.task!.ongoing;
       _hasReminder = widget.task!.hasReminder;
       _reminderTime = widget.task!.reminderTime != null
           ? DateTime.fromMillisecondsSinceEpoch(widget.task!.reminderTime!)
           : null;
+      _selectedProjectId = widget.task!.projectId;
     }
+
+    // Load available projects
+    _loadProjects();
 
     // Automatically focus the title field after the widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -71,6 +89,36 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
         FocusScope.of(context).requestFocus(_titleFocus);
       }
     });
+  }
+
+  Future<void> _loadProjects() async {
+    try {
+      // Access the project repository directly from the service locator
+      final projectRepository = di.sl<ProjectRepository>();
+      final projects = await projectRepository.getAllProjects();
+      if (mounted) {
+        setState(() {
+          _projects = projects;
+        });
+      }
+    } catch (e) {
+      print('Error loading projects: $e');
+      // Fallback to just having the inbox project
+      if (mounted) {
+        setState(() {
+          _projects = [
+            const Project(
+              id: 'inbox',
+              name: 'Inbox',
+              color: 0xFF4A6572,
+              createdAt: 0,
+              updatedAt: 0,
+              isDefault: true,
+            ),
+          ];
+        });
+      }
+    }
   }
 
   @override
@@ -151,6 +199,7 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                         ),
                         const SizedBox(height: 16),
 
+                        // Always visible fields
                         // Title field
                         TextFormField(
                           controller: _titleController,
@@ -172,29 +221,6 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                             return null;
                           },
                           focusNode: _titleFocus,
-                          onFieldSubmitted: (_) {
-                            FocusScope.of(context)
-                                .requestFocus(_descriptionFocus);
-                          },
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Description field
-                        TextFormField(
-                          controller: _descriptionController,
-                          textInputAction: TextInputAction.next,
-                          decoration: InputDecoration(
-                            labelText: 'Description (optional)',
-                            filled: true,
-                            fillColor: isDarkMode
-                                ? AppColors.darkBackground
-                                : AppColors.lightBackground,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          maxLines: 2,
-                          focusNode: _descriptionFocus,
                           onFieldSubmitted: (_) {
                             FocusScope.of(context)
                                 .requestFocus(_estimatedPomodorosFocus);
@@ -220,15 +246,13 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                           focusNode: _estimatedPomodorosFocus,
                           onFieldSubmitted: (_) {
                             FocusScope.of(context).unfocus();
-                            // Optionally, open the date selector
-                            // _showDateTimePicker(context);
                           },
                         ),
                         const SizedBox(height: 12),
 
-                        // Start date selector
+                        // Project selector
                         GestureDetector(
-                          onTap: () => _showDateTimePicker(context, true),
+                          onTap: () => _showProjectSelectionDialog(context),
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -245,13 +269,39 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  DateFormat('EEE, MMM d, yyyy - hh:mm a')
-                                      .format(_startDate),
-                                  style: TextStyle(color: textColor),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.folder_outlined,
+                                      color: isDarkMode
+                                          ? AppColors.darkPrimary
+                                          : AppColors.lightPrimary,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _projects.isEmpty
+                                          ? 'Loading projects...'
+                                          : _projects
+                                              .firstWhere(
+                                                (p) =>
+                                                    p.id == _selectedProjectId,
+                                                orElse: () => const Project(
+                                                  id: 'inbox',
+                                                  name: 'Inbox',
+                                                  color: 0xFF4A6572,
+                                                  createdAt: 0,
+                                                  updatedAt: 0,
+                                                  isDefault: true,
+                                                ),
+                                              )
+                                              .name,
+                                      style: TextStyle(color: textColor),
+                                    ),
+                                  ],
                                 ),
                                 Icon(
-                                  Icons.calendar_today,
+                                  Icons.arrow_drop_down,
                                   color: isDarkMode
                                       ? AppColors.darkPrimary
                                       : AppColors.lightPrimary,
@@ -262,9 +312,9 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                         ),
                         const SizedBox(height: 12),
 
-                        // End date selector
+                        // Date selector
                         GestureDetector(
-                          onTap: () => _showDateTimePicker(context, false),
+                          onTap: () => _showCupertinoDatePicker(context),
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -281,13 +331,25 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  DateFormat('EEE, MMM d, yyyy - hh:mm a')
-                                      .format(_endDate),
-                                  style: TextStyle(color: textColor),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.calendar_today,
+                                      color: isDarkMode
+                                          ? AppColors.darkPrimary
+                                          : AppColors.lightPrimary,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      DateFormat('EEE, MMM d, yyyy')
+                                          .format(_taskDate),
+                                      style: TextStyle(color: textColor),
+                                    ),
+                                  ],
                                 ),
                                 Icon(
-                                  Icons.calendar_today,
+                                  Icons.arrow_drop_down,
                                   color: isDarkMode
                                       ? AppColors.darkPrimary
                                       : AppColors.lightPrimary,
@@ -298,98 +360,326 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Ongoing switch
+                        // Start and end time side by side
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Ongoing Task',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: textColor,
-                              ),
-                            ),
-                            Switch(
-                              value: _ongoing,
-                              onChanged: (value) {
-                                setState(() {
-                                  _ongoing = value;
-                                });
-                              },
-                              activeColor: isDarkMode
-                                  ? AppColors.darkPrimary
-                                  : AppColors.lightPrimary,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Reminder switch
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Reminder',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: textColor,
-                              ),
-                            ),
-                            Switch(
-                              value: _hasReminder,
-                              onChanged: (value) {
-                                setState(() {
-                                  _hasReminder = value;
-                                });
-                              },
-                              activeColor: isDarkMode
-                                  ? AppColors.darkPrimary
-                                  : AppColors.lightPrimary,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Reminder time selector
-                        if (_hasReminder)
-                          GestureDetector(
-                            onTap: () => _showReminderPicker(context),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: isDarkMode
-                                    ? AppColors.darkBackground
-                                    : AppColors.lightBackground,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: isDarkMode
-                                      ? AppColors.darkBorder
-                                      : AppColors.lightBorder,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    _reminderTime == null
-                                        ? 'No reminder'
-                                        : DateFormat(
-                                            'EEE, MMM d, yyyy - hh:mm a',
-                                          ).format(_reminderTime!),
-                                    style: TextStyle(color: textColor),
+                            // Start time selector
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () =>
+                                    _showCupertinoTimePicker(context, true),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 10,
                                   ),
-                                  Icon(
-                                    Icons.calendar_today,
+                                  decoration: BoxDecoration(
                                     color: isDarkMode
-                                        ? AppColors.darkPrimary
-                                        : AppColors.lightPrimary,
+                                        ? AppColors.darkBackground
+                                        : AppColors.lightBackground,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isDarkMode
+                                          ? AppColors.darkBorder
+                                          : AppColors.lightBorder,
+                                    ),
                                   ),
-                                ],
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.access_time,
+                                            color: isDarkMode
+                                                ? AppColors.darkPrimary
+                                                : AppColors.lightPrimary,
+                                            size: 16,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            DateFormat('h:mm a')
+                                                .format(_startDate),
+                                            style: TextStyle(
+                                              color: textColor,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Icon(
+                                        Icons.arrow_drop_down,
+                                        color: isDarkMode
+                                            ? AppColors.darkPrimary
+                                            : AppColors.lightPrimary,
+                                        size: 16,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(width: 8),
+
+                            // End time selector
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () =>
+                                    _showCupertinoTimePicker(context, false),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isDarkMode
+                                        ? AppColors.darkBackground
+                                        : AppColors.lightBackground,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isDarkMode
+                                          ? AppColors.darkBorder
+                                          : AppColors.lightBorder,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.access_time,
+                                            color: isDarkMode
+                                                ? AppColors.darkPrimary
+                                                : AppColors.lightPrimary,
+                                            size: 16,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            DateFormat('h:mm a')
+                                                .format(_endDate),
+                                            style: TextStyle(
+                                              color: textColor,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Icon(
+                                        Icons.arrow_drop_down,
+                                        color: isDarkMode
+                                            ? AppColors.darkPrimary
+                                            : AppColors.lightPrimary,
+                                        size: 16,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Show more button
+                        Center(
+                          child: TextButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _showAdvancedOptions = !_showAdvancedOptions;
+                              });
+                            },
+                            icon: Icon(
+                              _showAdvancedOptions
+                                  ? Icons.expand_less
+                                  : Icons.expand_more,
+                              color: isDarkMode
+                                  ? AppColors.darkPrimary
+                                  : AppColors.lightPrimary,
+                            ),
+                            label: Text(
+                              _showAdvancedOptions ? 'Show Less' : 'Show More',
+                              style: TextStyle(
+                                color: isDarkMode
+                                    ? AppColors.darkPrimary
+                                    : AppColors.lightPrimary,
                               ),
                             ),
                           ),
-                        const SizedBox(height: 16),
+                        ),
+
+                        // Advanced options section
+                        if (_showAdvancedOptions) ...[
+                          const SizedBox(height: 16),
+
+                          // Description field
+                          TextFormField(
+                            controller: _descriptionController,
+                            textInputAction: TextInputAction.next,
+                            decoration: InputDecoration(
+                              labelText: 'Description (optional)',
+                              filled: true,
+                              fillColor: isDarkMode
+                                  ? AppColors.darkBackground
+                                  : AppColors.lightBackground,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            maxLines: 2,
+                            focusNode: _descriptionFocus,
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Ongoing switch
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDarkMode
+                                  ? AppColors.darkBackground
+                                  : AppColors.lightBackground,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isDarkMode
+                                    ? AppColors.darkBorder
+                                    : AppColors.lightBorder,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Repeat Daily',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: textColor,
+                                  ),
+                                ),
+                                Switch(
+                                  value: _ongoing,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _ongoing = value;
+                                    });
+                                  },
+                                  activeColor: isDarkMode
+                                      ? AppColors.darkPrimary
+                                      : AppColors.lightPrimary,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Reminder switch
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDarkMode
+                                  ? AppColors.darkBackground
+                                  : AppColors.lightBackground,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isDarkMode
+                                    ? AppColors.darkBorder
+                                    : AppColors.lightBorder,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Enable Reminder',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: textColor,
+                                  ),
+                                ),
+                                Switch(
+                                  value: _hasReminder,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _hasReminder = value;
+                                      if (value && _reminderTime == null) {
+                                        _reminderTime = _startDate.subtract(
+                                          const Duration(minutes: 30),
+                                        );
+                                      }
+                                    });
+                                  },
+                                  activeColor: isDarkMode
+                                      ? AppColors.darkPrimary
+                                      : AppColors.lightPrimary,
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Reminder time selector
+                          if (_hasReminder) ...[
+                            const SizedBox(height: 16),
+                            GestureDetector(
+                              onTap: () =>
+                                  _showCupertinoReminderPicker(context),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isDarkMode
+                                      ? AppColors.darkBackground
+                                      : AppColors.lightBackground,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isDarkMode
+                                        ? AppColors.darkBorder
+                                        : AppColors.lightBorder,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.notifications_active,
+                                          color: isDarkMode
+                                              ? AppColors.darkPrimary
+                                              : AppColors.lightPrimary,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          _reminderTime == null
+                                              ? 'Set reminder time'
+                                              : 'Remind at: ${DateFormat('h:mm a, MMM d').format(_reminderTime!)}',
+                                          style: TextStyle(color: textColor),
+                                        ),
+                                      ],
+                                    ),
+                                    Icon(
+                                      Icons.arrow_drop_down,
+                                      color: isDarkMode
+                                          ? AppColors.darkPrimary
+                                          : AppColors.lightPrimary,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+
+                        const SizedBox(height: 24),
 
                         // Save button
                         SizedBox(
@@ -410,11 +700,11 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
+                                fontSize: 16,
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 20),
                       ],
                     ),
                   ),
@@ -427,78 +717,343 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
     );
   }
 
-  void _showDateTimePicker(BuildContext context, bool isStartDate) {
-    showDatePicker(
+  Future<void> _showCupertinoDatePicker(BuildContext context) async {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor =
+        isDarkMode ? AppColors.darkSurface : AppColors.lightSurface;
+    final textColor =
+        isDarkMode ? AppColors.darkOnSurface : AppColors.lightOnSurface;
+
+    var pickedDate = _taskDate;
+
+    await showModalBottomSheet(
       context: context,
-      initialDate: isStartDate ? _startDate : _endDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 1)),
-      lastDate: DateTime(2030),
-    ).then((selectedDate) {
-      if (selectedDate != null) {
-        // After choosing the date, show the time picker
-        showTimePicker(
-          context: context,
-          initialTime:
-              TimeOfDay.fromDateTime(isStartDate ? _startDate : _endDate),
-        ).then((selectedTime) {
-          if (selectedTime != null) {
-            // Combine date and time
-            setState(() {
-              if (isStartDate) {
-                _startDate = DateTime(
-                  selectedDate.year,
-                  selectedDate.month,
-                  selectedDate.day,
-                  selectedTime.hour,
-                  selectedTime.minute,
-                );
-              } else {
-                _endDate = DateTime(
-                  selectedDate.year,
-                  selectedDate.month,
-                  selectedDate.day,
-                  selectedTime.hour,
-                  selectedTime.minute,
-                );
-              }
-            });
-          }
-        });
-      }
-    });
+      backgroundColor: backgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return Container(
+          height: 320,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Select Date',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _taskDate = pickedDate;
+
+                        // Update both start and end times to keep the same time but on the new date
+                        _startDate = DateTime(
+                          pickedDate.year,
+                          pickedDate.month,
+                          pickedDate.day,
+                          _startDate.hour,
+                          _startDate.minute,
+                        );
+
+                        _endDate = DateTime(
+                          pickedDate.year,
+                          pickedDate.month,
+                          pickedDate.day,
+                          _endDate.hour,
+                          _endDate.minute,
+                        );
+                      });
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(
+                      'Done',
+                      style: TextStyle(
+                        color: isDarkMode
+                            ? AppColors.darkPrimary
+                            : AppColors.lightPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(),
+              Expanded(
+                child: CupertinoDatePicker(
+                  initialDateTime: _taskDate,
+                  mode: CupertinoDatePickerMode.date,
+                  minimumDate: DateTime.now().subtract(const Duration(days: 1)),
+                  maximumDate: DateTime.now().add(const Duration(days: 365)),
+                  onDateTimeChanged: (DateTime newDate) {
+                    pickedDate = newDate;
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
-  void _showReminderPicker(BuildContext context) {
-    // Use current time if reminderTime is null
-    final initialDateTime = _reminderTime ?? DateTime.now();
+  Future<void> _showCupertinoTimePicker(
+    BuildContext context,
+    bool isStartTime,
+  ) async {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor =
+        isDarkMode ? AppColors.darkSurface : AppColors.lightSurface;
+    final textColor =
+        isDarkMode ? AppColors.darkOnSurface : AppColors.lightOnSurface;
 
-    showDatePicker(
+    final initialTime = isStartTime ? _startDate : _endDate;
+    var pickedTime = initialTime;
+
+    await showModalBottomSheet(
       context: context,
-      initialDate: initialDateTime,
-      firstDate: DateTime.now().subtract(const Duration(days: 1)),
-      lastDate: DateTime(2030),
-    ).then((selectedDate) {
-      if (selectedDate != null) {
-        // After choosing the date, show the time picker
-        showTimePicker(
-          context: context,
-          initialTime: TimeOfDay.fromDateTime(initialDateTime),
-        ).then((selectedTime) {
-          if (selectedTime != null) {
-            // Combine date and time
-            setState(() {
-              _reminderTime = DateTime(
-                selectedDate.year,
-                selectedDate.month,
-                selectedDate.day,
-                selectedTime.hour,
-                selectedTime.minute,
-              );
-            });
-          }
-        });
-      }
-    });
+      backgroundColor: backgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return Container(
+          height: 320,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    isStartTime ? 'Select Start Time' : 'Select End Time',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      // Validate time selection before applying
+                      if (!isStartTime && pickedTime.isBefore(_startDate)) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('End time must be after start time'),
+                          ),
+                        );
+                      } else {
+                        setState(() {
+                          if (isStartTime) {
+                            _startDate = DateTime(
+                              _taskDate.year,
+                              _taskDate.month,
+                              _taskDate.day,
+                              pickedTime.hour,
+                              pickedTime.minute,
+                            );
+
+                            // Adjust end time if needed
+                            if (_endDate.isBefore(_startDate)) {
+                              _endDate =
+                                  _startDate.add(const Duration(hours: 1));
+                            }
+                          } else {
+                            _endDate = DateTime(
+                              _taskDate.year,
+                              _taskDate.month,
+                              _taskDate.day,
+                              pickedTime.hour,
+                              pickedTime.minute,
+                            );
+                          }
+                        });
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    child: Text(
+                      'Done',
+                      style: TextStyle(
+                        color: isDarkMode
+                            ? AppColors.darkPrimary
+                            : AppColors.lightPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(),
+              Expanded(
+                child: CupertinoDatePicker(
+                  initialDateTime: initialTime,
+                  mode: CupertinoDatePickerMode.time,
+                  use24hFormat: MediaQuery.of(context).alwaysUse24HourFormat,
+                  onDateTimeChanged: (DateTime newTime) {
+                    pickedTime = newTime;
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showCupertinoReminderPicker(BuildContext context) async {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor =
+        isDarkMode ? AppColors.darkSurface : AppColors.lightSurface;
+    final textColor =
+        isDarkMode ? AppColors.darkOnSurface : AppColors.lightOnSurface;
+
+    final initialDateTime =
+        _reminderTime ?? _startDate.subtract(const Duration(minutes: 30));
+    var pickedTime = initialDateTime;
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: backgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return Container(
+          height: 320,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Set Reminder Time',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _reminderTime = pickedTime;
+                      });
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(
+                      'Done',
+                      style: TextStyle(
+                        color: isDarkMode
+                            ? AppColors.darkPrimary
+                            : AppColors.lightPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(),
+              Expanded(
+                child: CupertinoDatePicker(
+                  initialDateTime: initialDateTime,
+                  use24hFormat: MediaQuery.of(context).alwaysUse24HourFormat,
+                  onDateTimeChanged: (DateTime newTime) {
+                    pickedTime = newTime;
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showProjectSelectionDialog(BuildContext context) async {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor =
+        isDarkMode ? AppColors.darkSurface : AppColors.lightSurface;
+    final textColor =
+        isDarkMode ? AppColors.darkOnSurface : AppColors.lightOnSurface;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: backgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (BuildContext context) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Select Project',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close, color: textColor),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const Divider(),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _projects.length,
+                  itemBuilder: (context, index) {
+                    final project = _projects[index];
+                    return ListTile(
+                      leading: Icon(
+                        Icons.circle,
+                        color: Color(project.color),
+                      ),
+                      title: Text(
+                        project.name,
+                        style: TextStyle(color: textColor),
+                      ),
+                      selected: _selectedProjectId == project.id,
+                      selectedTileColor: isDarkMode
+                          ? AppColors.darkPrimary.withOpacity(0.1)
+                          : AppColors.lightPrimary.withOpacity(0.1),
+                      onTap: () {
+                        setState(() {
+                          _selectedProjectId = project.id;
+                        });
+                        Navigator.of(context).pop();
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _saveTask() {
@@ -533,6 +1088,7 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
               ongoing: _ongoing,
               hasReminder: _hasReminder,
               reminderTime: _reminderTime,
+              projectId: _selectedProjectId,
             ),
           );
     } else {
@@ -550,6 +1106,7 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
               ongoing: _ongoing,
               hasReminder: _hasReminder,
               reminderTime: _reminderTime,
+              projectId: _selectedProjectId,
             ),
           );
     }

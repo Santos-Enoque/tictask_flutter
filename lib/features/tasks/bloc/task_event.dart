@@ -33,11 +33,12 @@ final class AddTask extends TaskEvent {
     required this.title,
     required this.startDate,
     required this.endDate,
-    required this.ongoing,
     this.description,
     this.estimatedPomodoros,
+    this.ongoing = false,
     this.hasReminder = false,
     this.reminderTime,
+    this.projectId = 'inbox', // Default to inbox
   });
   final String title;
   final String? description;
@@ -47,6 +48,7 @@ final class AddTask extends TaskEvent {
   final bool ongoing;
   final bool hasReminder;
   final DateTime? reminderTime;
+  final String projectId;
 
   @override
   List<Object?> get props => [
@@ -58,13 +60,14 @@ final class AddTask extends TaskEvent {
         ongoing,
         hasReminder,
         reminderTime,
+        projectId,
       ];
 }
 
 final class UpdateTask extends TaskEvent {
   const UpdateTask({
     required this.id,
-    this.title,
+    required this.title,
     this.description,
     this.estimatedPomodoros,
     this.startDate,
@@ -72,9 +75,10 @@ final class UpdateTask extends TaskEvent {
     this.ongoing,
     this.hasReminder,
     this.reminderTime,
+    this.projectId,
   });
   final String id;
-  final String? title;
+  final String title;
   final String? description;
   final int? estimatedPomodoros;
   final DateTime? startDate;
@@ -82,6 +86,7 @@ final class UpdateTask extends TaskEvent {
   final bool? ongoing;
   final bool? hasReminder;
   final DateTime? reminderTime;
+  final String? projectId;
 
   @override
   List<Object?> get props => [
@@ -94,6 +99,7 @@ final class UpdateTask extends TaskEvent {
         ongoing,
         hasReminder,
         reminderTime,
+        projectId,
       ];
 }
 
