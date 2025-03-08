@@ -14,20 +14,26 @@ class Task extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     required this.pomodorosCompleted,
-    required this.dueDate,
+    required this.startDate,
+    required this.endDate,
     required this.ongoing,
     this.description,
     this.completedAt,
     this.estimatedPomodoros,
+    this.hasReminder = false,
+    this.reminderTime,
   });
 
   // Factory method to create a new task
   factory Task.create({
     required String title,
-    required int dueDate,
+    required int startDate,
+    required int endDate,
     String? description,
     int? estimatedPomodoros,
     bool ongoing = false,
+    bool hasReminder = false,
+    int? reminderTime,
   }) {
     final now = DateTime.now().millisecondsSinceEpoch;
     return Task(
@@ -39,8 +45,11 @@ class Task extends Equatable {
       updatedAt: now,
       pomodorosCompleted: 0,
       estimatedPomodoros: estimatedPomodoros,
-      dueDate: dueDate,
+      startDate: startDate,
+      endDate: endDate,
       ongoing: ongoing,
+      hasReminder: hasReminder,
+      reminderTime: reminderTime,
     );
   }
   @HiveField(0)
@@ -71,10 +80,19 @@ class Task extends Equatable {
   final int? estimatedPomodoros;
 
   @HiveField(9)
-  final int dueDate;
+  final int startDate;
 
   @HiveField(10)
+  final int endDate;
+
+  @HiveField(11)
   final bool ongoing;
+
+  @HiveField(12)
+  final bool hasReminder;
+
+  @HiveField(13)
+  final int? reminderTime;
 
   // Create a copy with updated fields
   Task copyWith({
@@ -85,8 +103,11 @@ class Task extends Equatable {
     int? completedAt,
     int? pomodorosCompleted,
     int? estimatedPomodoros,
-    int? dueDate,
+    int? startDate,
+    int? endDate,
     bool? ongoing,
+    bool? hasReminder,
+    int? reminderTime,
   }) {
     return Task(
       id: id,
@@ -98,8 +119,11 @@ class Task extends Equatable {
       completedAt: completedAt ?? this.completedAt,
       pomodorosCompleted: pomodorosCompleted ?? this.pomodorosCompleted,
       estimatedPomodoros: estimatedPomodoros ?? this.estimatedPomodoros,
-      dueDate: dueDate ?? this.dueDate,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
       ongoing: ongoing ?? this.ongoing,
+      hasReminder: hasReminder ?? this.hasReminder,
+      reminderTime: reminderTime ?? this.reminderTime,
     );
   }
 
@@ -138,7 +162,10 @@ class Task extends Equatable {
         completedAt,
         pomodorosCompleted,
         estimatedPomodoros,
-        dueDate,
+        startDate,
+        endDate,
         ongoing,
+        hasReminder,
+        reminderTime,
       ];
 }

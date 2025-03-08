@@ -23,18 +23,21 @@ class TaskAdapter extends TypeAdapter<Task> {
       createdAt: fields[4] as int,
       updatedAt: fields[5] as int,
       pomodorosCompleted: fields[7] as int,
-      dueDate: fields[9] as int,
-      ongoing: fields[10] as bool,
+      startDate: fields[9] as int,
+      endDate: fields[10] as int,
+      ongoing: fields[11] as bool,
       description: fields[2] as String?,
       completedAt: fields[6] as int?,
       estimatedPomodoros: fields[8] as int?,
+      hasReminder: fields[12] as bool,
+      reminderTime: fields[13] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Task obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(14)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -54,9 +57,15 @@ class TaskAdapter extends TypeAdapter<Task> {
       ..writeByte(8)
       ..write(obj.estimatedPomodoros)
       ..writeByte(9)
-      ..write(obj.dueDate)
+      ..write(obj.startDate)
       ..writeByte(10)
-      ..write(obj.ongoing);
+      ..write(obj.endDate)
+      ..writeByte(11)
+      ..write(obj.ongoing)
+      ..writeByte(12)
+      ..write(obj.hasReminder)
+      ..writeByte(13)
+      ..write(obj.reminderTime);
   }
 
   @override

@@ -48,9 +48,9 @@ class TaskRepository {
         .millisecondsSinceEpoch;
 
     return _tasksBox.values.where((task) {
-      // Include ongoing tasks or tasks with due date on this day
+      // Include ongoing tasks or tasks with date range overlapping this day
       return task.ongoing ||
-          (task.dueDate >= startOfDay && task.dueDate <= endOfDay);
+          (task.startDate <= endOfDay && task.endDate >= startOfDay);
     }).toList();
   }
 
@@ -66,9 +66,9 @@ class TaskRepository {
             .millisecondsSinceEpoch;
 
     return _tasksBox.values.where((task) {
-      // Include ongoing tasks or tasks with due date within the range
+      // Include ongoing tasks or tasks with date range overlapping the given range
       return task.ongoing ||
-          (task.dueDate >= rangeStart && task.dueDate <= rangeEnd);
+          (task.startDate <= rangeEnd && task.endDate >= rangeStart);
     }).toList();
   }
 

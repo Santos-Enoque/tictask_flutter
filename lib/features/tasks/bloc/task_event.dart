@@ -31,20 +31,34 @@ final class LoadTasksInRange extends TaskEvent {
 final class AddTask extends TaskEvent {
   const AddTask({
     required this.title,
-    required this.dueDate,
+    required this.startDate,
+    required this.endDate,
     required this.ongoing,
     this.description,
     this.estimatedPomodoros,
+    this.hasReminder = false,
+    this.reminderTime,
   });
   final String title;
   final String? description;
   final int? estimatedPomodoros;
-  final DateTime dueDate;
+  final DateTime startDate;
+  final DateTime endDate;
   final bool ongoing;
+  final bool hasReminder;
+  final DateTime? reminderTime;
 
   @override
-  List<Object?> get props =>
-      [title, description, estimatedPomodoros, dueDate, ongoing];
+  List<Object?> get props => [
+        title,
+        description,
+        estimatedPomodoros,
+        startDate,
+        endDate,
+        ongoing,
+        hasReminder,
+        reminderTime,
+      ];
 }
 
 final class UpdateTask extends TaskEvent {
@@ -53,19 +67,34 @@ final class UpdateTask extends TaskEvent {
     this.title,
     this.description,
     this.estimatedPomodoros,
-    this.dueDate,
+    this.startDate,
+    this.endDate,
     this.ongoing,
+    this.hasReminder,
+    this.reminderTime,
   });
   final String id;
   final String? title;
   final String? description;
   final int? estimatedPomodoros;
-  final DateTime? dueDate;
+  final DateTime? startDate;
+  final DateTime? endDate;
   final bool? ongoing;
+  final bool? hasReminder;
+  final DateTime? reminderTime;
 
   @override
-  List<Object?> get props =>
-      [id, title, description, estimatedPomodoros, dueDate, ongoing];
+  List<Object?> get props => [
+        id,
+        title,
+        description,
+        estimatedPomodoros,
+        startDate,
+        endDate,
+        ongoing,
+        hasReminder,
+        reminderTime,
+      ];
 }
 
 final class DeleteTask extends TaskEvent {

@@ -286,7 +286,8 @@ class _TasksScreenState extends State<TasksScreen> {
     final tasksByDate = <DateTime, List<Task>>{};
 
     for (final task in tasks) {
-      final date = DateTime.fromMillisecondsSinceEpoch(task.dueDate);
+      // Use startDate instead of dueDate for grouping
+      final date = DateTime.fromMillisecondsSinceEpoch(task.startDate);
       // Remove time part for grouping by date
       final dateOnly = DateTime(date.year, date.month, date.day);
 
@@ -405,7 +406,8 @@ class _TasksScreenState extends State<TasksScreen> {
 
   Widget _buildTaskItem(Task task) {
     final dateFormat = DateFormat('h:mm a');
-    final dueDate = DateTime.fromMillisecondsSinceEpoch(task.dueDate);
+    // Use startDate instead of dueDate for display
+    final taskDate = DateTime.fromMillisecondsSinceEpoch(task.startDate);
 
     return Dismissible(
       key: Key(task.id),
@@ -506,7 +508,7 @@ class _TasksScreenState extends State<TasksScreen> {
                           color: Theme.of(context).hintColor,
                         ),
                         const SizedBox(width: 4),
-                        Text(dateFormat.format(dueDate)),
+                        Text(dateFormat.format(taskDate)),
                         if (task.estimatedPomodoros != null) ...[
                           const SizedBox(width: 12),
                           Icon(

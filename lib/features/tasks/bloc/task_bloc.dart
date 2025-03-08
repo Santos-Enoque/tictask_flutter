@@ -72,8 +72,11 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
         title: event.title,
         description: event.description,
         estimatedPomodoros: event.estimatedPomodoros,
-        dueDate: event.dueDate.millisecondsSinceEpoch,
+        startDate: event.startDate.millisecondsSinceEpoch,
+        endDate: event.endDate.millisecondsSinceEpoch,
         ongoing: event.ongoing,
+        hasReminder: event.hasReminder,
+        reminderTime: event.reminderTime?.millisecondsSinceEpoch,
       );
       await _taskRepository.saveTask(task);
       final tasks = await _taskRepository.getAllTasks();
@@ -97,8 +100,11 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
         title: event.title,
         description: event.description,
         estimatedPomodoros: event.estimatedPomodoros,
-        dueDate: event.dueDate?.millisecondsSinceEpoch,
+        startDate: event.startDate?.millisecondsSinceEpoch,
+        endDate: event.endDate?.millisecondsSinceEpoch,
         ongoing: event.ongoing,
+        hasReminder: event.hasReminder,
+        reminderTime: event.reminderTime?.millisecondsSinceEpoch,
       );
 
       await _taskRepository.saveTask(updatedTask);

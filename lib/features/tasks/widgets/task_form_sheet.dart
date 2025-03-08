@@ -24,8 +24,11 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   late TextEditingController _estimatedPomodorosController;
-  late DateTime _dueDate;
-  bool _ongoing = false;
+  late DateTime _startDate;
+  late DateTime _endDate;
+  late bool _ongoing;
+  late bool _hasReminder;
+  DateTime? _reminderTime;
 
   // Add focus nodes for better keyboard control
   final FocusNode _titleFocus = FocusNode();
@@ -38,7 +41,14 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
     _titleController = TextEditingController();
     _descriptionController = TextEditingController();
     _estimatedPomodorosController = TextEditingController();
-    _dueDate = DateTime.now();
+
+    // Initialize with default values
+    final now = DateTime.now();
+    _startDate = now;
+    _endDate = now.add(const Duration(hours: 1));
+    _ongoing = false;
+    _hasReminder = false;
+    _reminderTime = null;
 
     // Set values if editing
     if (widget.task != null) {
@@ -46,8 +56,13 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
       _descriptionController.text = widget.task!.description ?? '';
       _estimatedPomodorosController.text =
           widget.task!.estimatedPomodoros?.toString() ?? '';
-      _dueDate = DateTime.fromMillisecondsSinceEpoch(widget.task!.dueDate);
+      _startDate = DateTime.fromMillisecondsSinceEpoch(widget.task!.startDate);
+      _endDate = DateTime.fromMillisecondsSinceEpoch(widget.task!.endDate);
       _ongoing = widget.task!.ongoing;
+      _hasReminder = widget.task!.hasReminder;
+      _reminderTime = widget.task!.reminderTime != null
+          ? DateTime.fromMillisecondsSinceEpoch(widget.task!.reminderTime!)
+          : null;
     }
 
     // Automatically focus the title field after the widget is built
@@ -211,9 +226,9 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Due date selector
+                        // Start date selector
                         GestureDetector(
-                          onTap: () => _showDateTimePicker(context),
+                          onTap: () => _showDateTimePicker(context, true),
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -232,7 +247,43 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                               children: [
                                 Text(
                                   DateFormat('EEE, MMM d, yyyy - hh:mm a')
-                                      .format(_dueDate),
+                                      .format(_startDate),
+                                  style: TextStyle(color: textColor),
+                                ),
+                                Icon(
+                                  Icons.calendar_today,
+                                  color: isDarkMode
+                                      ? AppColors.darkPrimary
+                                      : AppColors.lightPrimary,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // End date selector
+                        GestureDetector(
+                          onTap: () => _showDateTimePicker(context, false),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isDarkMode
+                                  ? AppColors.darkBackground
+                                  : AppColors.lightBackground,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isDarkMode
+                                    ? AppColors.darkBorder
+                                    : AppColors.lightBorder,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  DateFormat('EEE, MMM d, yyyy - hh:mm a')
+                                      .format(_endDate),
                                   style: TextStyle(color: textColor),
                                 ),
                                 Icon(
@@ -271,6 +322,73 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 12),
+
+                        // Reminder switch
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Reminder',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: textColor,
+                              ),
+                            ),
+                            Switch(
+                              value: _hasReminder,
+                              onChanged: (value) {
+                                setState(() {
+                                  _hasReminder = value;
+                                });
+                              },
+                              activeColor: isDarkMode
+                                  ? AppColors.darkPrimary
+                                  : AppColors.lightPrimary,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Reminder time selector
+                        if (_hasReminder)
+                          GestureDetector(
+                            onTap: () => _showReminderPicker(context),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isDarkMode
+                                    ? AppColors.darkBackground
+                                    : AppColors.lightBackground,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isDarkMode
+                                      ? AppColors.darkBorder
+                                      : AppColors.lightBorder,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _reminderTime == null
+                                        ? 'No reminder'
+                                        : DateFormat(
+                                            'EEE, MMM d, yyyy - hh:mm a',
+                                          ).format(_reminderTime!),
+                                    style: TextStyle(color: textColor),
+                                  ),
+                                  Icon(
+                                    Icons.calendar_today,
+                                    color: isDarkMode
+                                        ? AppColors.darkPrimary
+                                        : AppColors.lightPrimary,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         const SizedBox(height: 16),
 
                         // Save button
@@ -309,10 +427,10 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
     );
   }
 
-  void _showDateTimePicker(BuildContext context) {
+  void _showDateTimePicker(BuildContext context, bool isStartDate) {
     showDatePicker(
       context: context,
-      initialDate: _dueDate,
+      initialDate: isStartDate ? _startDate : _endDate,
       firstDate: DateTime.now().subtract(const Duration(days: 1)),
       lastDate: DateTime(2030),
     ).then((selectedDate) {
@@ -320,12 +438,56 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
         // After choosing the date, show the time picker
         showTimePicker(
           context: context,
-          initialTime: TimeOfDay.fromDateTime(_dueDate),
+          initialTime:
+              TimeOfDay.fromDateTime(isStartDate ? _startDate : _endDate),
         ).then((selectedTime) {
           if (selectedTime != null) {
             // Combine date and time
             setState(() {
-              _dueDate = DateTime(
+              if (isStartDate) {
+                _startDate = DateTime(
+                  selectedDate.year,
+                  selectedDate.month,
+                  selectedDate.day,
+                  selectedTime.hour,
+                  selectedTime.minute,
+                );
+              } else {
+                _endDate = DateTime(
+                  selectedDate.year,
+                  selectedDate.month,
+                  selectedDate.day,
+                  selectedTime.hour,
+                  selectedTime.minute,
+                );
+              }
+            });
+          }
+        });
+      }
+    });
+  }
+
+  void _showReminderPicker(BuildContext context) {
+    // Use current time if reminderTime is null
+    final initialDateTime = _reminderTime ?? DateTime.now();
+
+    showDatePicker(
+      context: context,
+      initialDate: initialDateTime,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime(2030),
+    ).then((selectedDate) {
+      if (selectedDate != null) {
+        // After choosing the date, show the time picker
+        showTimePicker(
+          context: context,
+          initialTime: TimeOfDay.fromDateTime(initialDateTime),
+        ).then((selectedTime) {
+          if (selectedTime != null) {
+            // Combine date and time
+            setState(() {
+              _reminderTime = DateTime(
                 selectedDate.year,
                 selectedDate.month,
                 selectedDate.day,
@@ -366,8 +528,11 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                   ? null
                   : _descriptionController.text,
               estimatedPomodoros: estimatedPomodoros,
-              dueDate: _dueDate,
+              startDate: _startDate,
+              endDate: _endDate,
               ongoing: _ongoing,
+              hasReminder: _hasReminder,
+              reminderTime: _reminderTime,
             ),
           );
     } else {
@@ -380,8 +545,11 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                   ? null
                   : _descriptionController.text,
               estimatedPomodoros: estimatedPomodoros,
-              dueDate: _dueDate,
+              startDate: _startDate,
+              endDate: _endDate,
               ongoing: _ongoing,
+              hasReminder: _hasReminder,
+              reminderTime: _reminderTime,
             ),
           );
     }

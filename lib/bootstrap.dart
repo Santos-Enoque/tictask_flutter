@@ -55,6 +55,12 @@ Future<void> _initializeHive() async {
     // Initialize Hive for Flutter (this works for all platforms including web)
     await Hive.initFlutter();
 
+    // TEMPORARY FIX: Clear all boxes to resolve the type mismatch issue
+    // Delete this after the first successful run
+    // await Hive.deleteBoxFromDisk('tasks');
+    // await Hive.deleteBoxFromDisk('timer_settings');
+    // await Hive.deleteBoxFromDisk('user_settings');
+
     // Register adapters for enums
     // Note: The actual adapter registrations will be done in the repository
     //       to avoid circular dependencies

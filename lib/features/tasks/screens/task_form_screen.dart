@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -19,9 +20,12 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   late TextEditingController _estimatedPomodorosController;
-  late DateTime _dueDate;
-  late TimeOfDay _dueTime;
+  late DateTime _taskDate;
+  late TimeOfDay _startTime;
+  late TimeOfDay _endTime;
   bool _ongoing = false;
+  bool _hasReminder = false;
+  DateTime? _reminderTime;
   bool _isLoading = true;
   Task? _task;
 
@@ -31,8 +35,12 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     _titleController = TextEditingController();
     _descriptionController = TextEditingController();
     _estimatedPomodorosController = TextEditingController();
-    _dueDate = DateTime.now();
-    _dueTime = TimeOfDay.now();
+    final now = DateTime.now();
+    _taskDate = now;
+    _startTime = TimeOfDay.now();
+    _endTime = TimeOfDay.fromDateTime(now.add(const Duration(hours: 1)));
+    _ongoing = false;
+    _hasReminder = false;
 
     // Load task if we're editing
     if (widget.taskId != null) {
@@ -49,7 +57,9 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       (t) => t.id == widget.taskId,
       orElse: () => Task.create(
         title: '',
-        dueDate: DateTime.now().millisecondsSinceEpoch,
+        startDate: DateTime.now().millisecondsSinceEpoch,
+        endDate:
+            DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch,
       ),
     );
 
@@ -60,10 +70,20 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       _estimatedPomodorosController.text =
           task.estimatedPomodoros?.toString() ?? '';
 
-      final dueDateTime = DateTime.fromMillisecondsSinceEpoch(task.dueDate);
-      _dueDate = DateTime(dueDateTime.year, dueDateTime.month, dueDateTime.day);
-      _dueTime = TimeOfDay(hour: dueDateTime.hour, minute: dueDateTime.minute);
+      final startDateTime = DateTime.fromMillisecondsSinceEpoch(task.startDate);
+      _taskDate =
+          DateTime(startDateTime.year, startDateTime.month, startDateTime.day);
+      _startTime =
+          TimeOfDay(hour: startDateTime.hour, minute: startDateTime.minute);
+
+      final endDateTime = DateTime.fromMillisecondsSinceEpoch(task.endDate);
+      _endTime = TimeOfDay(hour: endDateTime.hour, minute: endDateTime.minute);
+
       _ongoing = task.ongoing;
+      _hasReminder = task.hasReminder;
+      _reminderTime = task.reminderTime != null
+          ? DateTime.fromMillisecondsSinceEpoch(task.reminderTime!)
+          : null;
       _isLoading = false;
     });
   }
@@ -130,7 +150,9 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 16),
-                    _buildDateTimeSelector(),
+                    _buildDateSelector(),
+                    const SizedBox(height: 16),
+                    _buildTimeRangeSelector(),
                     const SizedBox(height: 16),
                     SwitchListTile(
                       title: const Text('Ongoing Task'),
@@ -142,6 +164,33 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                         });
                       },
                     ),
+                    const SizedBox(height: 16),
+                    SwitchListTile(
+                      title: const Text('Set Reminder'),
+                      subtitle:
+                          const Text('Get notified before the task starts'),
+                      value: _hasReminder,
+                      onChanged: (value) {
+                        setState(() {
+                          _hasReminder = value;
+                          if (value && _reminderTime == null) {
+                            final startDateTime = DateTime(
+                              _taskDate.year,
+                              _taskDate.month,
+                              _taskDate.day,
+                              _startTime.hour,
+                              _startTime.minute,
+                            );
+                            _reminderTime = startDateTime
+                                .subtract(const Duration(minutes: 30));
+                          }
+                        });
+                      },
+                    ),
+                    if (_hasReminder) ...[
+                      const SizedBox(height: 16),
+                      _buildReminderSelector(),
+                    ],
                     const SizedBox(height: 24),
                     ElevatedButton(
                       onPressed: _saveTask,
@@ -157,54 +206,29 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     );
   }
 
-  Widget _buildDateTimeSelector() {
+  Widget _buildDateSelector() {
     final dateFormat = DateFormat('EEEE, MMMM d, yyyy');
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: InkWell(
-            onTap: () async {
-              final pickedDate = await showDatePicker(
-                context: context,
-                initialDate: _dueDate,
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2030),
-              );
-              if (pickedDate != null) {
-                setState(() {
-                  _dueDate = pickedDate;
-                });
-              }
-            },
-            child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Due Date',
-                border: OutlineInputBorder(),
-              ),
-              child: Text(dateFormat.format(_dueDate)),
-            ),
-          ),
+        const Text(
+          'Task Date',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: InkWell(
-            onTap: () async {
-              final pickedTime = await showTimePicker(
-                context: context,
-                initialTime: _dueTime,
-              );
-              if (pickedTime != null) {
-                setState(() {
-                  _dueTime = pickedTime;
-                });
-              }
-            },
-            child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Due Time',
-                border: OutlineInputBorder(),
-              ),
-              child: Text(_dueTime.format(context)),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () async {
+            await _showCupertinoDatePicker();
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: ListTile(
+              leading: const Icon(Icons.calendar_today),
+              title: Text(dateFormat.format(_taskDate)),
+              trailing: const Icon(Icons.arrow_drop_down),
             ),
           ),
         ),
@@ -212,15 +236,453 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     );
   }
 
+  Future<void> _showCupertinoDatePicker() async {
+    DateTime? pickedDate = _taskDate;
+
+    await showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          height: 300,
+          color: CupertinoColors.systemBackground.resolveFrom(context),
+          child: Column(
+            children: [
+              SizedBox(
+                height: 40,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      child: const Text('Cancel'),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                    CupertinoButton(
+                      child: const Text('Done'),
+                      onPressed: () {
+                        setState(() {
+                          _taskDate = pickedDate!;
+                        });
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(),
+              Expanded(
+                child: CupertinoDatePicker(
+                  initialDateTime: _taskDate,
+                  mode: CupertinoDatePickerMode.date,
+                  minimumDate: DateTime(2020),
+                  maximumDate: DateTime(2030),
+                  onDateTimeChanged: (DateTime newDate) {
+                    pickedDate = newDate;
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTimeRangeSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Task Duration (Same Day)',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            child: Column(
+              children: [
+                // Start Time
+                ListTile(
+                  leading: const Icon(Icons.play_circle_outline),
+                  title: const Text('Start Time'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _startTime.format(context),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.access_time),
+                    ],
+                  ),
+                  onTap: () async {
+                    await _showCupertinoTimePicker(isStartTime: true);
+                  },
+                ),
+
+                const Divider(height: 1),
+
+                // End Time
+                ListTile(
+                  leading: const Icon(Icons.stop_circle_outlined),
+                  title: const Text('End Time'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _endTime.format(context),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.access_time),
+                    ],
+                  ),
+                  onTap: () async {
+                    await _showCupertinoTimePicker(isStartTime: false);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showCupertinoTimePicker({required bool isStartTime}) async {
+    final initialTime = isStartTime ? _startTime : _endTime;
+    final initialDateTime = DateTime(
+      _taskDate.year,
+      _taskDate.month,
+      _taskDate.day,
+      initialTime.hour,
+      initialTime.minute,
+    );
+    DateTime? pickedDateTime = initialDateTime;
+
+    await showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          height: 300,
+          color: CupertinoColors.systemBackground.resolveFrom(context),
+          child: Column(
+            children: [
+              SizedBox(
+                height: 40,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      child: const Text('Cancel'),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                    CupertinoButton(
+                      child: const Text('Done'),
+                      onPressed: () {
+                        if (pickedDateTime != null) {
+                          final newTimeOfDay = TimeOfDay(
+                            hour: pickedDateTime!.hour,
+                            minute: pickedDateTime!.minute,
+                          );
+
+                          setState(() {
+                            if (isStartTime) {
+                              _startTime = newTimeOfDay;
+                              // Ensure end time is after start time
+                              if (_endTime.hour < _startTime.hour ||
+                                  (_endTime.hour == _startTime.hour &&
+                                      _endTime.minute < _startTime.minute)) {
+                                _endTime = TimeOfDay(
+                                  hour: (_startTime.hour + 1) % 24,
+                                  minute: _startTime.minute,
+                                );
+                              }
+                            } else {
+                              // Validate that end time is after start time
+                              final startDateTime = DateTime(
+                                _taskDate.year,
+                                _taskDate.month,
+                                _taskDate.day,
+                                _startTime.hour,
+                                _startTime.minute,
+                              );
+                              if (pickedDateTime!.isBefore(startDateTime)) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'End time must be after start time',
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                _endTime = newTimeOfDay;
+                              }
+                            }
+                          });
+                        }
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(),
+              Expanded(
+                child: CupertinoDatePicker(
+                  initialDateTime: initialDateTime,
+                  mode: CupertinoDatePickerMode.time,
+                  use24hFormat: MediaQuery.of(context).alwaysUse24HourFormat,
+                  onDateTimeChanged: (DateTime newDateTime) {
+                    pickedDateTime = newDateTime;
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildReminderSelector() {
+    final dateFormat = DateFormat('EEEE, MMMM d, yyyy');
+    final initialDateTime = _reminderTime ?? DateTime.now();
+    final timeString = _reminderTime == null
+        ? 'Select time'
+        : TimeOfDay(
+            hour: _reminderTime!.hour,
+            minute: _reminderTime!.minute,
+          ).format(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Reminder Time',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: () async {
+                  await _showCupertinoReminderDatePicker();
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Date',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.calendar_today),
+                  ),
+                  child: Text(
+                    _reminderTime == null
+                        ? 'Select date'
+                        : dateFormat.format(_reminderTime!),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: InkWell(
+                onTap: () async {
+                  await _showCupertinoReminderTimePicker();
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Time',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.access_time),
+                  ),
+                  child: Text(timeString),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showCupertinoReminderDatePicker() async {
+    final initialDateTime = _reminderTime ?? DateTime.now();
+    DateTime? pickedDate = initialDateTime;
+
+    await showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          height: 300,
+          color: CupertinoColors.systemBackground.resolveFrom(context),
+          child: Column(
+            children: [
+              SizedBox(
+                height: 40,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      child: const Text('Cancel'),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                    CupertinoButton(
+                      child: const Text('Done'),
+                      onPressed: () {
+                        if (_reminderTime != null) {
+                          setState(() {
+                            _reminderTime = DateTime(
+                              pickedDate!.year,
+                              pickedDate!.month,
+                              pickedDate!.day,
+                              _reminderTime!.hour,
+                              _reminderTime!.minute,
+                            );
+                          });
+                        } else {
+                          final now = DateTime.now();
+                          setState(() {
+                            _reminderTime = DateTime(
+                              pickedDate!.year,
+                              pickedDate!.month,
+                              pickedDate!.day,
+                              now.hour,
+                              now.minute,
+                            );
+                          });
+                        }
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(),
+              Expanded(
+                child: CupertinoDatePicker(
+                  initialDateTime: initialDateTime,
+                  mode: CupertinoDatePickerMode.date,
+                  minimumDate: DateTime(2020),
+                  maximumDate: DateTime(2030),
+                  onDateTimeChanged: (DateTime newDate) {
+                    pickedDate = newDate;
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showCupertinoReminderTimePicker() async {
+    final initialDateTime = _reminderTime ?? DateTime.now();
+    DateTime? pickedTime = initialDateTime;
+
+    await showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          height: 300,
+          color: CupertinoColors.systemBackground.resolveFrom(context),
+          child: Column(
+            children: [
+              SizedBox(
+                height: 40,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      child: const Text('Cancel'),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                    CupertinoButton(
+                      child: const Text('Done'),
+                      onPressed: () {
+                        if (_reminderTime != null) {
+                          setState(() {
+                            _reminderTime = DateTime(
+                              _reminderTime!.year,
+                              _reminderTime!.month,
+                              _reminderTime!.day,
+                              pickedTime!.hour,
+                              pickedTime!.minute,
+                            );
+                          });
+                        } else {
+                          final now = DateTime.now();
+                          setState(() {
+                            _reminderTime = DateTime(
+                              now.year,
+                              now.month,
+                              now.day,
+                              pickedTime!.hour,
+                              pickedTime!.minute,
+                            );
+                          });
+                        }
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(),
+              Expanded(
+                child: CupertinoDatePicker(
+                  initialDateTime: initialDateTime,
+                  mode: CupertinoDatePickerMode.time,
+                  use24hFormat: MediaQuery.of(context).alwaysUse24HourFormat,
+                  onDateTimeChanged: (DateTime newTime) {
+                    pickedTime = newTime;
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _saveTask() {
     if (_formKey.currentState!.validate()) {
-      final dueDateTimeEpoch = DateTime(
-        _dueDate.year,
-        _dueDate.month,
-        _dueDate.day,
-        _dueTime.hour,
-        _dueTime.minute,
-      ).millisecondsSinceEpoch;
+      final startDateTime = DateTime(
+        _taskDate.year,
+        _taskDate.month,
+        _taskDate.day,
+        _startTime.hour,
+        _startTime.minute,
+      );
+
+      final endDateTime = DateTime(
+        _taskDate.year,
+        _taskDate.month,
+        _taskDate.day,
+        _endTime.hour,
+        _endTime.minute,
+      );
 
       int? estimatedPomodoros;
       if (_estimatedPomodorosController.text.isNotEmpty) {
@@ -228,7 +690,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       }
 
       if (widget.taskId == null) {
-        // Add new task
         context.read<TaskBloc>().add(
               AddTask(
                 title: _titleController.text,
@@ -236,12 +697,14 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                     ? null
                     : _descriptionController.text,
                 estimatedPomodoros: estimatedPomodoros,
-                dueDate: DateTime.fromMillisecondsSinceEpoch(dueDateTimeEpoch),
+                startDate: startDateTime,
+                endDate: endDateTime,
                 ongoing: _ongoing,
+                hasReminder: _hasReminder,
+                reminderTime: _reminderTime,
               ),
             );
       } else {
-        // Update existing task
         context.read<TaskBloc>().add(
               UpdateTask(
                 id: widget.taskId!,
@@ -250,8 +713,11 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                     ? null
                     : _descriptionController.text,
                 estimatedPomodoros: estimatedPomodoros,
-                dueDate: DateTime.fromMillisecondsSinceEpoch(dueDateTimeEpoch),
+                startDate: startDateTime,
+                endDate: endDateTime,
                 ongoing: _ongoing,
+                hasReminder: _hasReminder,
+                reminderTime: _reminderTime,
               ),
             );
       }
