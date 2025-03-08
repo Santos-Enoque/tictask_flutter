@@ -9,6 +9,8 @@ import 'package:tictask/features/tasks/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
 import 'package:tictask/features/tasks/widgets/date_scroll_picker.dart';
 import 'package:tictask/features/tasks/widgets/task_form_sheet.dart';
+import 'package:tictask/features/timer/bloc/timer_bloc.dart';
+import 'package:tictask/features/timer/screens/timer_screen.dart';
 
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key, this.showNavBar = true});
@@ -517,16 +519,35 @@ class _TasksScreenState extends State<TasksScreen> {
                         icon: const Icon(Icons.play_circle),
                         tooltip: 'Start Pomodoro',
                         onPressed: () {
+                          // Get the current timer state from the bloc
+                          final timerBloc = context.read<TimerBloc>();
+                          final timerState = timerBloc.state;
+
+                          // Check if a timer is already running
+                          if (timerState.status == TimerUIStatus.running ||
+                              timerState.status == TimerUIStatus.breakRunning) {
+                            // Show a message that a timer is already running
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'A timer is already running. Complete or cancel it before starting a new one.',
+                                ),
+                                duration: Duration(seconds: 3),
+                              ),
+                            );
+                            return;
+                          }
+
                           // Mark task as in progress
                           context
                               .read<TaskBloc>()
                               .add(MarkTaskAsInProgress(task.id));
 
-                          // Navigate to timer with this task selected
-                          context.pushReplacement(
-                            Routes.timer,
-                            extra: {'taskId': task.id, 'autoStart': true},
-                          );
+                          // Set the pending task and navigate to the timer tab through HomeScreen
+                          TimerScreen.setPendingTask(task.id);
+
+                          // Navigate to the timer tab via the home route
+                          context.go(Routes.timer);
                         },
                       )
                     : null,

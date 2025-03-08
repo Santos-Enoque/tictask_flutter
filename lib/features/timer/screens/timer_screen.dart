@@ -23,6 +23,16 @@ class TimerScreen extends StatefulWidget {
   final String? taskId;
   final bool autoStart;
 
+  // Static properties to hold pending task info
+  static String? _pendingTaskId;
+  static bool _pendingAutoStart = false;
+
+  // Static method to set task info before navigation
+  static void setPendingTask(String taskId, {bool autoStart = true}) {
+    _pendingTaskId = taskId;
+    _pendingAutoStart = autoStart;
+  }
+
   @override
   State<TimerScreen> createState() => _TimerScreenState();
 }
@@ -39,24 +49,83 @@ class _TimerScreenState extends State<TimerScreen> {
 
     // Initialize the timer
     context.read<TimerBloc>().add(const TimerInitialized());
+
+    // Check for pending task info
+    if (TimerScreen._pendingTaskId != null) {
+      // Use the taskId from static property
+      final taskId = TimerScreen._pendingTaskId;
+      final autoStart = TimerScreen._pendingAutoStart;
+
+      // Clear the static properties
+      TimerScreen._pendingTaskId = null;
+      TimerScreen._pendingAutoStart = false;
+
+      // Wait for the widget to be fully built
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          // Get the current timer state
+          final timerState = context.read<TimerBloc>().state;
+
+          // Only start a new timer if there isn't one already running
+          if (timerState.status != TimerUIStatus.running &&
+              timerState.status != TimerUIStatus.breakRunning) {
+            // First, load the task
+            _updateTaskFuture(taskId!);
+
+            // Then start the timer with the task
+            context.read<TimerBloc>().add(TimerStarted(taskId: taskId));
+          } else {
+            // Show a message that a timer is already running
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'A timer is already running. Complete or cancel it before starting a new one.',
+                ),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+      });
+    }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // Only do this once per lifecycle
-    if (!_hasInitializedTask && widget.autoStart && widget.taskId != null) {
+    // Check if we have a taskId and autoStart flag and haven't initialized yet
+    if (!_hasInitializedTask && widget.taskId != null && widget.autoStart) {
+      // Mark as initialized so we don't do this again
       _hasInitializedTask = true;
 
-      // This is safer to access providers
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        // First, load the task
-        _updateTaskFuture(widget.taskId!);
+      // Get the current timer state
+      final timerState = context.read<TimerBloc>().state;
 
-        // Then start the timer with the task
-        context.read<TimerBloc>().add(TimerStarted(taskId: widget.taskId));
-      });
+      // Only start a new timer if there isn't one already running
+      if (timerState.status != TimerUIStatus.running &&
+          timerState.status != TimerUIStatus.breakRunning) {
+        // This is safer to access providers
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          // First, load the task
+          _updateTaskFuture(widget.taskId!);
+
+          // Then start the timer with the task
+          context.read<TimerBloc>().add(TimerStarted(taskId: widget.taskId));
+        });
+      } else {
+        // Show a message that a timer is already running
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'A timer is already running. Complete or cancel it before starting a new one.',
+              ),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        });
+      }
     }
   }
 
