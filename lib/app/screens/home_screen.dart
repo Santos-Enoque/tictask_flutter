@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:tictask/features/settings/screens/settings_screen.dart';
 import 'package:tictask/features/tasks/screens/tasks_screen.dart';
 import 'package:tictask/features/timer/screens/timer_screen.dart';
@@ -48,24 +49,24 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedIndex: _selectedIndex,
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.timer_outlined),
+            icon: Icon(LucideIcons.timer),
             selectedIcon: Icon(Icons.timer),
-            label: 'Timer',
+            label: '',
           ),
           NavigationDestination(
-            icon: Icon(Icons.check_box_outlined),
-            selectedIcon: Icon(Icons.check_box),
-            label: 'Tasks',
+            icon: Icon(LucideIcons.checkCircle),
+            selectedIcon: Icon(LucideIcons.checkCircle),
+            label: '',
           ),
           NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined),
-            selectedIcon: Icon(Icons.calendar_month),
-            label: 'Calendar',
+            icon: Icon(LucideIcons.calendar),
+            selectedIcon: Icon(LucideIcons.calendar),
+            label: '',
           ),
           NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
+            icon: Icon(LucideIcons.settings),
+            selectedIcon: Icon(LucideIcons.settings),
+            label: '',
           ),
         ],
       ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/app/routes/routes.dart';
 import 'package:tictask/app/theme/dimensions.dart';
 import 'package:tictask/features/tasks/models/task.dart';
@@ -88,7 +90,7 @@ class _TimerScreenState extends State<TimerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TicTask Timer'),
+        title: _buildTaskDropdown(context),
         centerTitle: true,
         automaticallyImplyLeading: false,
       ),
@@ -142,13 +144,12 @@ class _TimerScreenState extends State<TimerScreen> {
                     ],
                   ),
 
-                  // 2. Current task display or task selection widget
-                  const SizedBox(height: AppDimensions.lg),
-                  _buildTaskSection(state),
+                  // Add flexible space to push content toward center
+                  const Spacer(),
 
-                  // 3. Timer display
-                  const SizedBox(height: AppDimensions.lg),
+                  // Timer display
                   Expanded(
+                    flex: 8,
                     child: Center(
                       child: TimerDisplay(
                         timeRemaining: state.timeRemaining,
@@ -159,10 +160,12 @@ class _TimerScreenState extends State<TimerScreen> {
                     ),
                   ),
 
-                  // 4. Timer controls at the bottom
-                  const SizedBox(height: AppDimensions.md),
+                  // Timer controls with better spacing
+                  const SizedBox(height: AppDimensions.lg),
                   _buildCupertinoTimerControls(context, state),
-                  const SizedBox(height: AppDimensions.xl),
+
+                  // Add flexible space at the bottom to push content up
+                  const Spacer(flex: 2),
                 ],
               ),
             ),
@@ -172,18 +175,20 @@ class _TimerScreenState extends State<TimerScreen> {
       // Only show bottom navigation if showNavBar is true
       bottomNavigationBar: widget.showNavBar
           ? BottomNavigationBar(
+              showSelectedLabels: false,
+              showUnselectedLabels: false,
               items: const [
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.timer),
-                  label: 'Timer',
+                  icon: Icon(LucideIcons.timer),
+                  label: '',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.check_circle_outline),
-                  label: 'Tasks',
+                  icon: Icon(LucideIcons.checkCircle),
+                  label: '',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.settings),
-                  label: 'Settings',
+                  icon: Icon(LucideIcons.settings),
+                  label: '',
                 ),
               ],
               onTap: (index) {
@@ -204,87 +209,180 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  // New method to build the task section - either current task or task selector
-  Widget _buildTaskSection(TimerState state) {
-    // Case 1: We have a task ID and loaded task
-    if (state.currentTaskId != null && _taskFuture != null) {
-      return FutureBuilder<Task?>(
-        future: _taskFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+  // New method to build iOS-style task dropdown in app bar
+  Widget _buildTaskDropdown(BuildContext context) {
+    return BlocBuilder<TimerBloc, TimerState>(
+      builder: (context, state) {
+        return GestureDetector(
+          onTap: () => _showTaskSelectionModal(context),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimensions.sm,
+              vertical: AppDimensions.xs,
+            ),
+            decoration: BoxDecoration(
+              color: Theme.of(context)
+                  .colorScheme
+                  .surfaceContainerHighest
+                  .withOpacity(0.3),
+              borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (state.currentTaskId != null && _taskFuture != null)
+                  Flexible(
+                    child: FutureBuilder<Task?>(
+                      future: _taskFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          );
+                        }
 
-          if (snapshot.hasData && snapshot.data != null) {
-            final task = snapshot.data!;
-            return Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppDimensions.md),
-              ),
-              child: InkWell(
-                onTap: _navigateToTaskSelection, // Allow changing the task
-                borderRadius: BorderRadius.circular(AppDimensions.md),
-                child: Padding(
-                  padding: const EdgeInsets.all(AppDimensions.md),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Current Task',
-                        style: Theme.of(context).textTheme.labelMedium,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        task.title,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }
+                        if (snapshot.hasData && snapshot.data != null) {
+                          return Text(
+                            snapshot.data!.title,
+                            style: Theme.of(context).textTheme.titleMedium,
+                            overflow: TextOverflow.ellipsis,
+                          );
+                        }
 
-          // Data is null, show task selection button
-          return _buildTaskSelectionButton();
-        },
-      );
-    }
-
-    // Case 2: No task selected, show task selection button
-    return _buildTaskSelectionButton();
+                        return const Text('Select Task');
+                      },
+                    ),
+                  )
+                else
+                  const Text('Select Task'),
+                const SizedBox(width: AppDimensions.xs),
+                const Icon(Icons.arrow_drop_down, size: 20),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
-  // Helper method to build the task selection button
-  Widget _buildTaskSelectionButton() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppDimensions.md),
-      ),
-      child: InkWell(
-        onTap: _navigateToTaskSelection,
-        borderRadius: BorderRadius.circular(AppDimensions.md),
-        child: Padding(
-          padding: const EdgeInsets.all(AppDimensions.md),
-          child: Column(
-            children: [
-              const Icon(Icons.add_task, size: 28),
-              const SizedBox(height: 4),
-              Text(
-                'Select a Task',
-                style: Theme.of(context).textTheme.titleMedium,
-                textAlign: TextAlign.center,
+  // New method to show task selection modal with todo tasks
+  Future<void> _showTaskSelectionModal(BuildContext context) async {
+    final taskRepository = context.read<TaskRepository>();
+
+    // Get today's tasks with todo status
+    final today = DateTime.now();
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // Get tasks for today
+      final allTasks = await taskRepository.getTasksForDate(today);
+
+      // Filter for todo tasks
+      final tasks =
+          allTasks.where((task) => task.status == TaskStatus.todo).toList();
+
+      // Dismiss loading dialog
+      Navigator.of(context).pop();
+
+      if (tasks.isEmpty) {
+        // Show message if no tasks
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('No Tasks'),
+            content: const Text(
+              'No todo tasks found for today. Would you like to create one?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  context.push(Routes.tasks);
+                },
+                child: const Text('Create Task'),
               ),
             ],
           ),
+        );
+        return;
+      }
+
+      // Show task selection bottom sheet
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppDimensions.radiusLg),
+          ),
         ),
-      ),
-    );
+        builder: (context) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(AppDimensions.md),
+              child: Text(
+                'Select a Task',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            const Divider(),
+            Expanded(
+              child: ListView.builder(
+                itemCount: tasks.length,
+                itemBuilder: (context, index) {
+                  final task = tasks[index];
+                  return ListTile(
+                    title: Text(task.title),
+                    subtitle: Text(task.description ?? ''),
+                    leading: const Icon(Icons.task_alt),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _updateTaskFuture(task.id);
+                      context
+                          .read<TimerBloc>()
+                          .add(TimerStarted(taskId: task.id));
+                    },
+                  );
+                },
+              ),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(AppDimensions.md),
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    context.push(Routes.tasks);
+                  },
+                  child: const Text('Create New Task'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      // Dismiss loading dialog
+      Navigator.of(context).pop();
+
+      // Show error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading tasks: $e')),
+      );
+    }
   }
 
   Widget _buildDrawer(BuildContext context) {

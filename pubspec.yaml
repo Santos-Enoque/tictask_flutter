@@ -23,6 +23,7 @@ dependencies:
   hive_flutter: ^1.1.0
   intl: ^0.19.0
   logger: ^2.0.2
+  lucide_icons: ^0.257.0
   path_provider: ^2.1.1
   uuid: ^4.2.1
 
