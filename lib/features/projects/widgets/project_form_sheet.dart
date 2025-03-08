@@ -178,9 +178,9 @@ class _ProjectFormSheetState extends State<ProjectFormSheet> {
                             GestureDetector(
                               onTap: _showEmojiPicker,
                               child: Container(
-                                width: 48,
-                                height: 48,
-                                margin: const EdgeInsets.only(right: 8),
+                                width: 60,
+                                height: 60,
+                                margin: const EdgeInsets.only(right: 12),
                                 decoration: BoxDecoration(
                                   color: _projectColors[_selectedColorIndex],
                                   borderRadius: BorderRadius.circular(8),
@@ -197,7 +197,7 @@ class _ProjectFormSheetState extends State<ProjectFormSheet> {
                             // Name field
                             Expanded(
                               child: SizedBox(
-                                height: 48,
+                                height: 60,
                                 child: TextFormField(
                                   controller: _nameController,
                                   textInputAction: TextInputAction.next,
@@ -211,8 +211,8 @@ class _ProjectFormSheetState extends State<ProjectFormSheet> {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 12,
+                                      horizontal: 16,
+                                      vertical: 16,
                                     ),
                                   ),
                                   validator: (value) {
@@ -377,8 +377,8 @@ class _ProjectFormSheetState extends State<ProjectFormSheet> {
                       Navigator.of(context).pop();
                     },
                     child: Container(
-                      width: 48,
-                      height: 48,
+                      width: 60,
+                      height: 60,
                       decoration: BoxDecoration(
                         color: isDarkMode
                             ? AppColors.darkBackground
@@ -388,7 +388,7 @@ class _ProjectFormSheetState extends State<ProjectFormSheet> {
                       child: Center(
                         child: Text(
                           emoji,
-                          style: const TextStyle(fontSize: 24),
+                          style: const TextStyle(fontSize: 28),
                         ),
                       ),
                     ),

@@ -8,6 +8,7 @@ import 'package:tictask/app/routes/routes.dart';
 import 'package:tictask/app/theme/dimensions.dart';
 import 'package:tictask/features/projects/models/project.dart';
 import 'package:tictask/features/projects/repositories/project_repository.dart';
+import 'package:tictask/features/projects/widgets/project_form_sheet.dart';
 import 'package:tictask/features/tasks/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
 import 'package:tictask/features/tasks/repositories/task_repository.dart';
@@ -49,6 +50,9 @@ class _TimerScreenState extends State<TimerScreen> {
   late TaskRepository _taskRepository;
   String? _selectedTaskId;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  // Add this state variable to track when to reload projects
+  int _projectsRefreshCounter = 0;
 
   @override
   void initState() {
@@ -452,19 +456,22 @@ class _TimerScreenState extends State<TimerScreen> {
                     icon: const Icon(Icons.add),
                     tooltip: 'Add Project',
                     onPressed: () {
-                      // Navigate to add project screen
                       Navigator.pop(context);
-                      context.push(Routes.tasks);
+                      _showCreateProjectModal(context);
                     },
                   ),
                 ],
               ),
             ),
 
-            // Projects list
+            // Projects list with Inbox at top
             Expanded(
               child: FutureBuilder<List<Project>>(
-                future: projectRepository.getAllProjects(),
+                key: ValueKey('projects-$_projectsRefreshCounter'),
+                future: Future(() async {
+                  await Future.delayed(const Duration(milliseconds: 100));
+                  return projectRepository.getAllProjects();
+                }),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
@@ -479,42 +486,156 @@ class _TimerScreenState extends State<TimerScreen> {
                   }
 
                   final projects = snapshot.data!;
-                  return ListView.builder(
-                    itemCount: projects.length,
-                    itemBuilder: (context, index) {
-                      final project = projects[index];
-                      return ListTile(
-                        leading:
-                            project.emoji != null && project.emoji!.isNotEmpty
-                                ? Text(
-                                    project.emoji!,
-                                    style: const TextStyle(fontSize: 24),
-                                  )
-                                : const Icon(Icons.folder_outlined),
-                        title: Text(project.name),
-                        trailing: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: Color(project.color),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        onTap: () {
-                          Navigator.pop(context); // Close drawer
 
-                          // Use go instead of push to avoid back button
-                          // Pass project ID as a query parameter to select it in tasks screen
-                          context.go('${Routes.tasks}?projectId=${project.id}');
-                        },
-                      );
-                    },
+                  // Separate Inbox from other projects
+                  Project? inboxProject;
+                  final otherProjects = <Project>[];
+
+                  for (final project in projects) {
+                    if (project.id == 'inbox') {
+                      inboxProject = project;
+                    } else {
+                      otherProjects.add(project);
+                    }
+                  }
+
+                  return ListView(
+                    children: [
+                      // Always show Inbox first if it exists
+                      if (inboxProject != null)
+                        _buildProjectItem(context, inboxProject, isInbox: true),
+
+                      // Then show all other projects
+                      ...otherProjects.map(
+                          (project) => _buildProjectItem(context, project)),
+                    ],
                   );
                 },
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // New helper method to build project items with popup menu
+  Widget _buildProjectItem(BuildContext context, Project project,
+      {bool isInbox = false}) {
+    return ListTile(
+      leading: project.emoji != null && project.emoji!.isNotEmpty
+          ? Text(project.emoji!, style: const TextStyle(fontSize: 24))
+          : const Icon(Icons.folder_outlined),
+      title: Text(project.name),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Project color indicator
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: Color(project.color),
+              shape: BoxShape.circle,
+            ),
+          ),
+
+          // Only show menu for non-inbox projects
+          if (!isInbox)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) async {
+                if (value == 'edit') {
+                  // Show edit project modal
+                  Navigator.pop(context); // Close drawer
+                  _showEditProjectModal(context, project);
+                } else if (value == 'delete') {
+                  // Confirm and delete project
+                  Navigator.pop(context); // Close drawer
+                  _showDeleteProjectConfirmation(context, project);
+                }
+              },
+              itemBuilder: (BuildContext context) => [
+                const PopupMenuItem<String>(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, size: 18),
+                      SizedBox(width: 8),
+                      Text('Edit'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, size: 18, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Delete', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+      onTap: () {
+        Navigator.pop(context); // Close drawer
+        context.go('${Routes.tasks}?projectId=${project.id}');
+      },
+    );
+  }
+
+  // Method to show edit project modal
+  void _showEditProjectModal(BuildContext context, Project project) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return ProjectFormSheet(
+          project: project, // Pass existing project for editing
+          onComplete: () {
+            Navigator.pop(context);
+            setState(() {
+              _projectsRefreshCounter++;
+            });
+          },
+        );
+      },
+    );
+  }
+
+  // Method to confirm and delete project
+  void _showDeleteProjectConfirmation(BuildContext context, Project project) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Project'),
+        content: Text(
+            'Are you sure you want to delete "${project.name}"? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(context);
+              // Delete the project
+              await GetIt.I<ProjectRepository>().deleteProject(project.id);
+              // Refresh the list
+              if (mounted) {
+                setState(() {
+                  _projectsRefreshCounter++;
+                });
+              }
+            },
+            child: const Text('Delete'),
+          ),
+        ],
       ),
     );
   }
@@ -773,6 +894,27 @@ class _TimerScreenState extends State<TimerScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showCreateProjectModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return ProjectFormSheet(
+          onComplete: () {
+            // Close the sheet
+            Navigator.pop(context);
+
+            // Increment the refresh counter to rebuild the projects list
+            setState(() {
+              _projectsRefreshCounter++;
+            });
+          },
+        );
+      },
     );
   }
 }
