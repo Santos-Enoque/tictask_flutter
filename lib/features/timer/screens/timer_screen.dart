@@ -737,29 +737,38 @@ class _TimerScreenState extends State<TimerScreen> {
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            FloatingActionButton(
-              heroTag: 'take_break',
-              backgroundColor: secondaryColor,
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
               onPressed: () =>
                   context.read<TimerBloc>().add(const TimerBreakStarted()),
-              tooltip: 'Take a Break',
-              child: const Icon(
-                Icons.coffee,
-                size: 30,
-                color: Colors.white,
+              icon: const Icon(Icons.coffee),
+              label: const Text(
+                'Take a Break',
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
-            const SizedBox(width: 20),
-            FloatingActionButton(
-              heroTag: 'continue_focus',
-              backgroundColor: primaryColor,
+            const SizedBox(width: 16),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                backgroundColor: secondaryColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
               onPressed: () =>
                   context.read<TimerBloc>().add(const TimerStarted()),
-              tooltip: 'Skip Break & Continue Focus',
-              child: const Icon(
-                Icons.skip_next,
-                size: 30,
-                color: Colors.white,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text(
+                'Continue Focus',
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
           ],
@@ -769,29 +778,38 @@ class _TimerScreenState extends State<TimerScreen> {
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            FloatingActionButton(
-              heroTag: 'start_focus',
-              backgroundColor: primaryColor,
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
               onPressed: () =>
                   context.read<TimerBloc>().add(const TimerBreakSkipped()),
-              tooltip: 'Start Focus',
-              child: const Icon(
-                Icons.work,
-                size: 30,
-                color: Colors.white,
+              icon: const Icon(Icons.work),
+              label: const Text(
+                'Start Focus',
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
-            const SizedBox(width: 20),
-            FloatingActionButton(
-              heroTag: 'more_break',
-              backgroundColor: secondaryColor,
+            const SizedBox(width: 16),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                backgroundColor: secondaryColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
               onPressed: () =>
                   context.read<TimerBloc>().add(const TimerBreakStarted()),
-              tooltip: 'More Break Time',
-              child: const Icon(
-                Icons.coffee,
-                size: 30,
-                color: Colors.white,
+              icon: const Icon(Icons.coffee),
+              label: const Text(
+                'More Break Time',
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
           ],
@@ -799,16 +817,14 @@ class _TimerScreenState extends State<TimerScreen> {
       }
     }
 
-    // For break running state, show pause and skip to focus buttons
+    // For break running or any other state, show appropriate controls
     if (state.status == TimerUIStatus.breakRunning) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           FloatingActionButton(
-            heroTag: 'pause_break',
             backgroundColor: secondaryColor,
             onPressed: () => context.read<TimerBloc>().add(const TimerPaused()),
-            tooltip: 'Pause Break',
             child: const Icon(
               Icons.pause,
               size: 30,
@@ -817,13 +833,10 @@ class _TimerScreenState extends State<TimerScreen> {
           ),
           const SizedBox(width: 20),
           FloatingActionButton(
-            heroTag: 'skip_to_focus',
-            backgroundColor: primaryColor,
-            onPressed: () =>
-                context.read<TimerBloc>().add(const TimerBreakSkipped()),
-            tooltip: 'Skip to Focus Session',
+            backgroundColor: Colors.red,
+            onPressed: () => context.read<TimerBloc>().add(const TimerReset()),
             child: const Icon(
-              Icons.work,
+              Icons.refresh,
               size: 30,
               color: Colors.white,
             ),

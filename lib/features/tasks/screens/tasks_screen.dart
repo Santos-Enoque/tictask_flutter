@@ -46,14 +46,11 @@ class _TasksScreenState extends State<TasksScreen> {
   String? _selectedProjectId;
   final ProjectRepository _projectRepository = GetIt.I<ProjectRepository>();
 
-  // Add a flag to track whether we've loaded from URL
-  bool _initialProjectLoaded = false;
-
   @override
   void initState() {
     super.initState();
     _titleFocus = FocusNode();
-
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         FocusScope.of(context).requestFocus(_titleFocus);
@@ -64,24 +61,21 @@ class _TasksScreenState extends State<TasksScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    // Only process URL parameters on first load
-    if (!_initialProjectLoaded) {
-      // Get project ID from URL parameters
-      final projectId =
-          GoRouterState.of(context).uri.queryParameters['projectId'];
-
-      // Update selected project if needed
-      if (projectId != null && projectId.isNotEmpty) {
+    
+    // Get project ID from URL parameters
+    final projectId = GoRouterState.of(context).uri.queryParameters['projectId'];
+    
+    // Update selected project if needed
+    if (projectId != null && projectId.isNotEmpty && projectId != _selectedProjectId) {
+      setState(() {
         _selectedProjectId = projectId;
-        _initialProjectLoaded = true;
-      }
+      });
     }
-
-    // Always load tasks with the current project filter
+    
+    // Load tasks with project filter
     context.read<TaskBloc>().add(
-          LoadTasksByDate(_selectedDate, projectId: _selectedProjectId),
-        );
+      LoadTasksByDate(_selectedDate, projectId: _selectedProjectId),
+    );
   }
 
   @override
