@@ -7,6 +7,7 @@ import 'package:tictask/app/theme/app_theme.dart';
 import 'package:tictask/app/theme/themes/dark_theme.dart';
 import 'package:tictask/app/theme/themes/light_theme.dart';
 import 'package:tictask/features/projects/bloc/project_bloc.dart';
+import 'package:tictask/features/projects/repositories/project_repository.dart';
 import 'package:tictask/features/tasks/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/repositories/task_repository.dart';
 import 'package:tictask/features/timer/bloc/timer_bloc.dart';
@@ -34,6 +35,9 @@ class App extends StatelessWidget {
         ),
         Provider<TaskRepository>(
           create: (_) => sl<TaskRepository>(),
+        ),
+        Provider<ProjectRepository>(
+          create: (_) => sl<ProjectRepository>(),
         ),
         BlocProvider<ProjectBloc>(
           create: (_) => sl<ProjectBloc>(),

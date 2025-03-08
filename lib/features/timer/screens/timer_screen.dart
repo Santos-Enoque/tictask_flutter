@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/app/routes/routes.dart';
 import 'package:tictask/app/theme/dimensions.dart';
+import 'package:tictask/features/projects/models/project.dart';
+import 'package:tictask/features/projects/repositories/project_repository.dart';
 import 'package:tictask/features/tasks/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
 import 'package:tictask/features/tasks/repositories/task_repository.dart';
@@ -45,6 +48,7 @@ class _TimerScreenState extends State<TimerScreen> {
   bool _hasInitializedTask = false;
   late TaskRepository _taskRepository;
   String? _selectedTaskId;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
@@ -187,12 +191,19 @@ class _TimerScreenState extends State<TimerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
         title: _buildTaskDropdown(context),
         centerTitle: true,
-        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          tooltip: 'Projects',
+          onPressed: () {
+            _scaffoldKey.currentState?.openDrawer();
+          },
+        ),
       ),
-      drawer: _buildDrawer(context),
+      drawer: _buildProjectsDrawer(context),
       body: BlocConsumer<TimerBloc, TimerState>(
         listener: (context, state) {
           // Update the task data when the timer state changes or on initial load
@@ -416,83 +427,90 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  Widget _buildDrawer(BuildContext context) {
+  // New simplified drawer with only projects
+  Widget _buildProjectsDrawer(BuildContext context) {
+    final projectRepository = GetIt.I<ProjectRepository>();
+
     return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
+      child: Column(
         children: [
-          DrawerHeader(
+          // Header with title and add button
+          Container(
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'TicTask',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onPrimary,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  'Projects',
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Focus. Complete. Repeat.',
-                  style: TextStyle(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onPrimary
-                        .withOpacity(0.8),
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  tooltip: 'Add Project',
+                  onPressed: () {
+                    // Navigate to add project screen
+                    Navigator.pop(context);
+                    context.push(
+                      Routes.tasks,
+                    ); // Navigate to tasks where projects can be added
+                  },
                 ),
               ],
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.timer),
-            title: const Text('Timer'),
-            onTap: () {
-              context.push(Routes.timer);
-              Navigator.pop(context); // Close drawer
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.check_circle_outline),
-            title: const Text('Tasks'),
-            onTap: () {
-              context.push(Routes.tasks);
-              Navigator.pop(context); // Close drawer
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.settings),
-            title: const Text('Settings'),
-            onTap: () {
-              context.push(Routes.settings);
-              Navigator.pop(context); // Close drawer
-            },
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text('About'),
-            onTap: () {
-              Navigator.pop(context); // Close drawer
-              // Show about dialog
-              showAboutDialog(
-                context: context,
-                applicationName: 'TicTask',
-                applicationVersion: '1.0.0',
-                applicationLegalese: '© 2023 TicTask',
-                children: [
-                  const SizedBox(height: 16),
-                  const Text(
-                    'A Pomodoro timer app to help you stay focused and productive.',
-                  ),
-                ],
-              );
-            },
+
+          // Projects list
+          Expanded(
+            child: FutureBuilder<List<Project>>(
+              future: projectRepository.getAllProjects(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
+
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Center(
+                    child: Text('No projects found'),
+                  );
+                }
+
+                final projects = snapshot.data!;
+                return ListView.builder(
+                  itemCount: projects.length,
+                  itemBuilder: (context, index) {
+                    final project = projects[index];
+                    return ListTile(
+                      leading:
+                          project.emoji != null && project.emoji!.isNotEmpty
+                              ? Text(
+                                  project.emoji!,
+                                  style: const TextStyle(fontSize: 24),
+                                )
+                              : const Icon(Icons.folder_outlined),
+                      title: Text(project.name),
+                      trailing: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Color(project.color),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        // Navigate to tasks with pre-selected project
+                        context.push(Routes.tasks);
+                      },
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ],
       ),
