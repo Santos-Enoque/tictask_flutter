@@ -27,6 +27,11 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
   late DateTime _dueDate;
   bool _ongoing = false;
 
+  // Add focus nodes for better keyboard control
+  final FocusNode _titleFocus = FocusNode();
+  final FocusNode _descriptionFocus = FocusNode();
+  final FocusNode _estimatedPomodorosFocus = FocusNode();
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +49,13 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
       _dueDate = DateTime.fromMillisecondsSinceEpoch(widget.task!.dueDate);
       _ongoing = widget.task!.ongoing;
     }
+
+    // Automatically focus the title field after the widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        FocusScope.of(context).requestFocus(_titleFocus);
+      }
+    });
   }
 
   @override
@@ -51,6 +63,9 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
     _titleController.dispose();
     _descriptionController.dispose();
     _estimatedPomodorosController.dispose();
+    _titleFocus.dispose();
+    _descriptionFocus.dispose();
+    _estimatedPomodorosFocus.dispose();
     super.dispose();
   }
 
@@ -62,196 +77,232 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
     final textColor =
         isDarkMode ? AppColors.darkOnSurface : AppColors.lightOnSurface;
 
+    // Determine available height with keyboard considerations
+    final screenHeight = MediaQuery.of(context).size.height;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+
+    // Use full height minus status bar and a small margin
+    final sheetHeight = screenHeight - statusBarHeight - 10;
+
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Container(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
+        height: sheetHeight,
         decoration: BoxDecoration(
           color: backgroundColor,
           borderRadius: const BorderRadius.vertical(
             top: Radius.circular(16),
           ),
         ),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar at top
-              Container(
-                margin: const EdgeInsets.only(top: 8, bottom: 16),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: textColor.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(2),
+        child: SafeArea(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar at top
+                Container(
+                  margin: const EdgeInsets.only(top: 8, bottom: 16),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: textColor.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
 
-              // Form content
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.task == null ? 'New Task' : 'Edit Task',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: textColor,
-                      ),
+                // Form content
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: EdgeInsets.only(
+                      left: 16,
+                      right: 16,
+                      bottom: keyboardHeight > 0
+                          ? keyboardHeight + 16
+                          : MediaQuery.of(context).padding.bottom + 16,
                     ),
-                    const SizedBox(height: 16),
-
-                    // Title field
-                    TextFormField(
-                      controller: _titleController,
-                      decoration: InputDecoration(
-                        labelText: 'Task title',
-                        filled: true,
-                        fillColor: isDarkMode
-                            ? AppColors.darkBackground
-                            : AppColors.lightBackground,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a title';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Description field
-                    TextFormField(
-                      controller: _descriptionController,
-                      decoration: InputDecoration(
-                        labelText: 'Description (optional)',
-                        filled: true,
-                        fillColor: isDarkMode
-                            ? AppColors.darkBackground
-                            : AppColors.lightBackground,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      maxLines: 2,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Pomodoros field
-                    TextFormField(
-                      controller: _estimatedPomodorosController,
-                      decoration: InputDecoration(
-                        labelText: 'Estimated pomodoros',
-                        filled: true,
-                        fillColor: isDarkMode
-                            ? AppColors.darkBackground
-                            : AppColors.lightBackground,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Due date selector
-                    GestureDetector(
-                      onTap: () => _showDateTimePicker(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isDarkMode
-                              ? AppColors.darkBackground
-                              : AppColors.lightBackground,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isDarkMode
-                                ? AppColors.darkBorder
-                                : AppColors.lightBorder,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.task == null ? 'New Task' : 'Edit Task',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
                           ),
                         ),
-                        child: Row(
+                        const SizedBox(height: 16),
+
+                        // Title field
+                        TextFormField(
+                          controller: _titleController,
+                          textInputAction: TextInputAction.next,
+                          decoration: InputDecoration(
+                            labelText: 'Task title',
+                            filled: true,
+                            fillColor: isDarkMode
+                                ? AppColors.darkBackground
+                                : AppColors.lightBackground,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter a title';
+                            }
+                            return null;
+                          },
+                          focusNode: _titleFocus,
+                          onFieldSubmitted: (_) {
+                            FocusScope.of(context)
+                                .requestFocus(_descriptionFocus);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Description field
+                        TextFormField(
+                          controller: _descriptionController,
+                          textInputAction: TextInputAction.next,
+                          decoration: InputDecoration(
+                            labelText: 'Description (optional)',
+                            filled: true,
+                            fillColor: isDarkMode
+                                ? AppColors.darkBackground
+                                : AppColors.lightBackground,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          maxLines: 2,
+                          focusNode: _descriptionFocus,
+                          onFieldSubmitted: (_) {
+                            FocusScope.of(context)
+                                .requestFocus(_estimatedPomodorosFocus);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Pomodoros field
+                        TextFormField(
+                          controller: _estimatedPomodorosController,
+                          textInputAction: TextInputAction.done,
+                          decoration: InputDecoration(
+                            labelText: 'Estimated pomodoros',
+                            filled: true,
+                            fillColor: isDarkMode
+                                ? AppColors.darkBackground
+                                : AppColors.lightBackground,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          keyboardType: TextInputType.number,
+                          focusNode: _estimatedPomodorosFocus,
+                          onFieldSubmitted: (_) {
+                            FocusScope.of(context).unfocus();
+                            // Optionally, open the date selector
+                            // _showDateTimePicker(context);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Due date selector
+                        GestureDetector(
+                          onTap: () => _showDateTimePicker(context),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isDarkMode
+                                  ? AppColors.darkBackground
+                                  : AppColors.lightBackground,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isDarkMode
+                                    ? AppColors.darkBorder
+                                    : AppColors.lightBorder,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  DateFormat('EEE, MMM d, yyyy - hh:mm a')
+                                      .format(_dueDate),
+                                  style: TextStyle(color: textColor),
+                                ),
+                                Icon(
+                                  Icons.calendar_today,
+                                  color: isDarkMode
+                                      ? AppColors.darkPrimary
+                                      : AppColors.lightPrimary,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Ongoing switch
+                        Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              DateFormat('EEE, MMM d, yyyy - hh:mm a')
-                                  .format(_dueDate),
-                              style: TextStyle(color: textColor),
+                              'Ongoing Task',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: textColor,
+                              ),
                             ),
-                            Icon(
-                              Icons.calendar_today,
-                              color: isDarkMode
+                            Switch(
+                              value: _ongoing,
+                              onChanged: (value) {
+                                setState(() {
+                                  _ongoing = value;
+                                });
+                              },
+                              activeColor: isDarkMode
                                   ? AppColors.darkPrimary
                                   : AppColors.lightPrimary,
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
+                        const SizedBox(height: 16),
 
-                    // Ongoing switch
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Ongoing Task',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: textColor,
+                        // Save button
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              backgroundColor: isDarkMode
+                                  ? AppColors.darkPrimary
+                                  : AppColors.lightPrimary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            onPressed: _saveTask,
+                            child: Text(
+                              widget.task == null ? 'Add Task' : 'Update Task',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ),
-                        Switch(
-                          value: _ongoing,
-                          onChanged: (value) {
-                            setState(() {
-                              _ongoing = value;
-                            });
-                          },
-                          activeColor: isDarkMode
-                              ? AppColors.darkPrimary
-                              : AppColors.lightPrimary,
-                        ),
+                        const SizedBox(height: 20),
                       ],
                     ),
-                    const SizedBox(height: 16),
-
-                    // Save button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          backgroundColor: isDarkMode
-                              ? AppColors.darkPrimary
-                              : AppColors.lightPrimary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        onPressed: _saveTask,
-                        child: Text(
-                          widget.task == null ? 'Add Task' : 'Update Task',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

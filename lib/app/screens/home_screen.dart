@@ -27,10 +27,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Define your screens here
   final List<Widget> _screens = [
-    const TimerScreen(showNavBar: false),
-    const TasksScreen(showNavBar: false),
-    const Placeholder(), // Replace with StatsScreen once created
-    const SettingsScreen(showNavBar: false),
+    const TimerScreen(showNavBar: false, key: PageStorageKey('timer')),
+    const TasksScreen(showNavBar: false, key: PageStorageKey('tasks')),
+    const Placeholder(
+        key: PageStorageKey('stats')), // Replace with StatsScreen once created
+    const SettingsScreen(showNavBar: false, key: PageStorageKey('settings')),
   ];
 
   @override

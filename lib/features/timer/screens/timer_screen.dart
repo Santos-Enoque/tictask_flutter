@@ -50,6 +50,19 @@ class _TimerScreenState extends State<TimerScreen> {
     // Initialize the timer
     context.read<TimerBloc>().add(const TimerInitialized());
 
+    // Schedule a check for the timer state after initialization
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        // Get current timer state after initialization
+        final timerState = context.read<TimerBloc>().state;
+
+        // If there's a current task ID in the timer state, load that task
+        if (timerState.currentTaskId != null && _currentTaskId == null) {
+          _updateTaskFuture(timerState.currentTaskId!);
+        }
+      }
+    });
+
     // Check for pending task info
     if (TimerScreen._pendingTaskId != null) {
       // Use the taskId from static property
@@ -132,6 +145,7 @@ class _TimerScreenState extends State<TimerScreen> {
   // Update this method to not use setState
   void _updateTaskFuture(String taskId) {
     try {
+      print('Loading task with ID: $taskId');
       final taskRepository = context.read<TaskRepository>();
       _taskFuture = taskRepository.getTaskById(taskId);
       _currentTaskId = taskId;
@@ -140,8 +154,19 @@ class _TimerScreenState extends State<TimerScreen> {
       if (mounted) {
         setState(() {});
       }
+
+      // Log when task is loaded
+      _taskFuture?.then((task) {
+        if (task != null) {
+          print('Task loaded successfully: ${task.title}');
+        } else {
+          print('Task not found with ID: $taskId');
+        }
+      }).catchError((error) {
+        print('Error loading task: $error');
+      });
     } catch (e) {
-      print('Error loading task: $e');
+      print('Error initializing task load: $e');
     }
   }
 
@@ -166,9 +191,10 @@ class _TimerScreenState extends State<TimerScreen> {
       drawer: _buildDrawer(context),
       body: BlocConsumer<TimerBloc, TimerState>(
         listener: (context, state) {
-          // Update the task data when the timer state changes
+          // Update the task data when the timer state changes or on initial load
           if (state.currentTaskId != null &&
-              state.currentTaskId != _currentTaskId) {
+              (state.currentTaskId != _currentTaskId ||
+                  _currentTaskId == null)) {
             _updateTaskFuture(state.currentTaskId!);
           }
         },
@@ -282,8 +308,14 @@ class _TimerScreenState extends State<TimerScreen> {
   Widget _buildTaskDropdown(BuildContext context) {
     return BlocBuilder<TimerBloc, TimerState>(
       builder: (context, state) {
+        // Check if timer is running or in break mode
+        final isTimerActive = state.status == TimerUIStatus.running ||
+            state.status == TimerUIStatus.breakRunning ||
+            state.status == TimerUIStatus.paused;
+
         return GestureDetector(
-          onTap: () => _showTaskSelectionModal(context),
+          // Disable the gesture detector if timer is active
+          onTap: isTimerActive ? null : () => _showTaskSelectionModal(context),
           child: Container(
             padding: const EdgeInsets.symmetric(
               horizontal: AppDimensions.sm,
@@ -293,8 +325,16 @@ class _TimerScreenState extends State<TimerScreen> {
               color: Theme.of(context)
                   .colorScheme
                   .surfaceContainerHighest
-                  .withOpacity(0.3),
+                  .withOpacity(
+                    isTimerActive ? 0.2 : 0.3,
+                  ), // Dim the container if disabled
               borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+              // Add a subtle border when disabled
+              border: isTimerActive
+                  ? Border.all(
+                      color: Theme.of(context).disabledColor.withOpacity(0.3),
+                    )
+                  : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -316,19 +356,52 @@ class _TimerScreenState extends State<TimerScreen> {
                         if (snapshot.hasData && snapshot.data != null) {
                           return Text(
                             snapshot.data!.title,
-                            style: Theme.of(context).textTheme.titleMedium,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  // Apply disabled style if timer is active
+                                  color: isTimerActive
+                                      ? Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.color
+                                          ?.withOpacity(0.7)
+                                      : null,
+                                ),
                             overflow: TextOverflow.ellipsis,
                           );
                         }
 
-                        return const Text('Select Task');
+                        return Text(
+                          'Select Task',
+                          style: TextStyle(
+                            // Apply disabled style if timer is active
+                            color: isTimerActive
+                                ? Theme.of(context).disabledColor
+                                : null,
+                          ),
+                        );
                       },
                     ),
                   )
                 else
-                  const Text('Select Task'),
+                  Text(
+                    'Select Task',
+                    style: TextStyle(
+                      // Apply disabled style if timer is active
+                      color: isTimerActive
+                          ? Theme.of(context).disabledColor
+                          : null,
+                    ),
+                  ),
                 const SizedBox(width: AppDimensions.xs),
-                const Icon(Icons.arrow_drop_down, size: 20),
+                Icon(
+                  Icons.arrow_drop_down,
+                  size: 20,
+                  // Apply disabled style if timer is active
+                  color: isTimerActive ? Theme.of(context).disabledColor : null,
+                ),
               ],
             ),
           ),
@@ -339,6 +412,25 @@ class _TimerScreenState extends State<TimerScreen> {
 
   // New method to show task selection modal with todo tasks
   Future<void> _showTaskSelectionModal(BuildContext context) async {
+    // Check if timer is active
+    final timerState = context.read<TimerBloc>().state;
+    final isTimerActive = timerState.status == TimerUIStatus.running ||
+        timerState.status == TimerUIStatus.breakRunning ||
+        timerState.status == TimerUIStatus.paused;
+
+    // Don't show the modal if the timer is active
+    if (isTimerActive) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Cannot change task while timer is running. Complete or cancel the current timer first.',
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     final taskRepository = context.read<TaskRepository>();
 
     // Get today's tasks with todo status

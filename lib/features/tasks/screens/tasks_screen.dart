@@ -34,11 +34,20 @@ class _TasksScreenState extends State<TasksScreen> {
   // View mode: 'day' for single day view, 'range' for date range view
   String _viewMode = 'day';
 
+  // Automatically focus the title field after the widget is built
+  late FocusNode _titleFocus;
+
   @override
   void initState() {
     super.initState();
     // Start with tasks for the current day
     context.read<TaskBloc>().add(LoadTasksByDate(_selectedDate));
+    _titleFocus = FocusNode();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        FocusScope.of(context).requestFocus(_titleFocus);
+      }
+    });
   }
 
   @override
@@ -224,18 +233,28 @@ class _TasksScreenState extends State<TasksScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      clipBehavior: Clip.antiAliasWithSaveLayer,
+      // Make it show at the top of the screen instead of sliding from bottom
+      anchorPoint: const Offset(0, 0),
       builder: (context) {
-        return TaskFormSheet(
-          task: task,
-          onComplete: () {
-            // This closure will be called when the user taps the Add/Update button
-            // We'll pop the sheet BEFORE dispatching the event to avoid race conditions
-            Navigator.of(context).pop();
+        return Padding(
+          // Add small top padding to show the form right below status bar
+          padding: const EdgeInsets.only(top: 10),
+          child: TaskFormSheet(
+            task: task,
+            onComplete: () {
+              // This closure will be called when the user taps the Add/Update button
+              // We'll pop the sheet BEFORE dispatching the event to avoid race conditions
+              Navigator.of(context).pop();
 
-            // The TaskBloc events will be dispatched from the TaskFormSheet
-            // After the sheet is closed, it will reload the tasks
-            _reloadTasks();
-          },
+              // The TaskBloc events will be dispatched from the TaskFormSheet
+              // After the sheet is closed, it will reload the tasks
+              _reloadTasks();
+            },
+          ),
         );
       },
     );

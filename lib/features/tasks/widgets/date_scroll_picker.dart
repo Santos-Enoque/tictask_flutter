@@ -19,7 +19,7 @@ class _DateScrollPickerState extends State<DateScrollPicker> {
   late List<DateTime> _dates;
   final int _totalDays = 60; // 30 days before and after today
   final double _itemWidth = 70;
-  final double _itemHeight = 90;
+  final double _itemHeight = 92; // Increased to prevent overflow
   late int _initialIndex;
 
   @override
@@ -67,112 +67,136 @@ class _DateScrollPickerState extends State<DateScrollPicker> {
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
+    return SizedBox(
       height: _itemHeight,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).dividerColor,
-            width: 0.5,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          border: Border(
+            bottom: BorderSide(
+              color: Theme.of(context).dividerColor,
+              width: 0.5,
+            ),
           ),
         ),
-      ),
-      child: ListView.builder(
-        controller: _scrollController,
-        scrollDirection: Axis.horizontal,
-        itemExtent: _itemWidth,
-        itemCount: _dates.length,
-        itemBuilder: (context, index) {
-          final date = _dates[index];
-          final isSelected = isSameDay(date, widget.selectedDate);
-          final isToday = isSameDay(date, DateTime.now());
+        child: ListView.builder(
+          controller: _scrollController,
+          scrollDirection: Axis.horizontal,
+          itemExtent: _itemWidth,
+          itemCount: _dates.length,
+          itemBuilder: (context, index) {
+            final date = _dates[index];
+            final isSelected = isSameDay(date, widget.selectedDate);
+            final isToday = isSameDay(date, DateTime.now());
 
-          // Formatting
-          final weekdayFormat = DateFormat('E'); // Mon, Tue, etc.
-          final dayFormat = DateFormat('d'); // 1, 2, etc.
-          final monthFormat = DateFormat('MMM'); // Jan, Feb, etc.
+            // Formatting
+            final weekdayFormat = DateFormat('E'); // Mon, Tue, etc.
+            final dayFormat = DateFormat('d'); // 1, 2, etc.
+            final monthFormat = DateFormat('MMM'); // Jan, Feb, etc.
 
-          return GestureDetector(
-            onTap: () => widget.onDateSelected(date),
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.transparent,
-                    width: 2,
+            return GestureDetector(
+              onTap: () => widget.onDateSelected(date),
+              child: Container(
+                width: _itemWidth,
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                ),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: _itemHeight - 2, // Account for border
+                      maxHeight: _itemHeight - 2,
+                      minWidth: _itemWidth - 4, // Some padding
+                      maxWidth: _itemWidth - 4,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Weekday (Mon, Tue, etc.)
+                        Text(
+                          weekdayFormat.format(date).toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1, // Tighter line height
+                            fontWeight: FontWeight.w500,
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withOpacity(0.6),
+                          ),
+                        ),
+                        const SizedBox(height: 4), // Reduced spacing
+
+                        // Day (1, 2, etc.)
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : isToday
+                                    ? (isDarkMode
+                                        ? Colors.grey[800]
+                                        : Colors.grey[200])
+                                    : Colors.transparent,
+                          ),
+                          child: Center(
+                            child: Text(
+                              dayFormat.format(date),
+                              style: TextStyle(
+                                fontSize: 16, // Slightly smaller
+                                height: 1, // Tighter line height
+                                fontWeight: FontWeight.bold,
+                                color: isSelected
+                                    ? Theme.of(context).colorScheme.onPrimary
+                                    : isToday
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // Month (Jan, Feb, etc.)
+                        Padding(
+                          padding:
+                              const EdgeInsets.only(top: 4), // Reduced spacing
+                          child: Text(
+                            monthFormat.format(date),
+                            style: TextStyle(
+                              fontSize: 11, // Slightly smaller
+                              height: 1, // Tighter line height
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withOpacity(0.6),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Weekday (Mon, Tue, etc.)
-                  Text(
-                    weekdayFormat.format(date).toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withOpacity(0.6),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Day (1, 2, etc.)
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : isToday
-                              ? (isDarkMode
-                                  ? Colors.grey[800]
-                                  : Colors.grey[200])
-                              : Colors.transparent,
-                    ),
-                    child: Center(
-                      child: Text(
-                        dayFormat.format(date),
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: isSelected
-                              ? Theme.of(context).colorScheme.onPrimary
-                              : isToday
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // Month (Jan, Feb, etc.)
-                  Text(
-                    monthFormat.format(date),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withOpacity(0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
