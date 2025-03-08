@@ -13,6 +13,7 @@ class Project extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.description,
+    this.emoji,
     this.isDefault = false,
   });
 
@@ -21,6 +22,7 @@ class Project extends Equatable {
     required String name,
     required int color,
     String? description,
+    String? emoji,
     bool isDefault = false,
   }) {
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -28,6 +30,7 @@ class Project extends Equatable {
       id: const Uuid().v4(),
       name: name,
       description: description,
+      emoji: emoji,
       color: color,
       createdAt: now,
       updatedAt: now,
@@ -42,6 +45,7 @@ class Project extends Equatable {
       id: 'inbox',
       name: 'Inbox',
       description: 'Default project for all tasks',
+      emoji: '📥', // Mailbox emoji
       color: 0xFF4A6572, // Default color
       createdAt: now,
       updatedAt: now,
@@ -70,6 +74,9 @@ class Project extends Equatable {
   @HiveField(6)
   final bool isDefault;
 
+  @HiveField(7)
+  final String? emoji;
+
   // Create a copy with updated fields
   Project copyWith({
     String? name,
@@ -77,12 +84,14 @@ class Project extends Equatable {
     int? color,
     int? updatedAt,
     bool? isDefault,
+    String? emoji,
   }) {
     return Project(
       id: id,
       name: name ?? this.name,
       description: description ?? this.description,
       color: color ?? this.color,
+      emoji: emoji ?? this.emoji,
       createdAt: createdAt,
       updatedAt: updatedAt ?? DateTime.now().millisecondsSinceEpoch,
       isDefault: isDefault ?? this.isDefault,
@@ -95,6 +104,7 @@ class Project extends Equatable {
         name,
         description,
         color,
+        emoji,
         createdAt,
         updatedAt,
         isDefault,

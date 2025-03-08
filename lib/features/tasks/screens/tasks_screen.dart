@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/app/routes/routes.dart';
+import 'package:tictask/app/theme/colors.dart';
 import 'package:tictask/app/widgets/app_scaffold.dart';
+import 'package:tictask/core/utils/logger.dart';
+import 'package:tictask/features/projects/models/project.dart';
+import 'package:tictask/features/projects/repositories/project_repository.dart';
 import 'package:tictask/features/tasks/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
 import 'package:tictask/features/tasks/widgets/date_scroll_picker.dart';
@@ -37,6 +42,10 @@ class _TasksScreenState extends State<TasksScreen> {
   // Automatically focus the title field after the widget is built
   late FocusNode _titleFocus;
 
+  // Add these new variables
+  String? _selectedProjectId;
+  final ProjectRepository _projectRepository = GetIt.I<ProjectRepository>();
+
   @override
   void initState() {
     super.initState();
@@ -57,19 +66,18 @@ class _TasksScreenState extends State<TasksScreen> {
       titleWidget: BlocBuilder<TaskBloc, TaskState>(
         builder: (context, state) {
           if (state is TaskLoaded) {
-            // Calculate completion percentage
             final completionPercentage =
                 _calculateCompletionPercentage(state.tasks);
-
             return Row(
               children: [
-                const Text('Tasks'),
+                // Project dropdown
+                _buildProjectDropdown(),
                 const SizedBox(width: 8),
                 _buildCompletionBadge(completionPercentage),
               ],
             );
           }
-          return const Text('Tasks');
+          return _buildProjectDropdown();
         },
       ),
       showBottomNav: widget.showNavBar,
@@ -190,11 +198,17 @@ class _TasksScreenState extends State<TasksScreen> {
 
   void _reloadTasks() {
     if (_viewMode == 'day') {
-      context.read<TaskBloc>().add(LoadTasksByDate(_selectedDate));
+      context.read<TaskBloc>().add(
+            LoadTasksByDate(_selectedDate, projectId: _selectedProjectId),
+          );
     } else {
-      context
-          .read<TaskBloc>()
-          .add(LoadTasksInRange(_dateRange.start, _dateRange.end));
+      context.read<TaskBloc>().add(
+            LoadTasksInRange(
+              _dateRange.start,
+              _dateRange.end,
+              projectId: _selectedProjectId,
+            ),
+          );
     }
   }
 
@@ -620,5 +634,142 @@ class _TasksScreenState extends State<TasksScreen> {
     }
 
     return (completedTasks / tasks.length) * 100;
+  }
+
+  Widget buildProjectInfo(Task task, BuildContext context) {
+    // Access the project repository
+    final projectRepository = GetIt.I<ProjectRepository>();
+
+    return FutureBuilder<Project?>(
+      future: projectRepository.getProjectById(task.projectId),
+      builder: (context, snapshot) {
+        // Default to inbox project while loading or if no project found
+        final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+        final textColor = isDarkMode ? Colors.white70 : Colors.black87;
+        // log the project id
+        AppLogger.i('Project ID: ${task.projectId}');
+        // If still loading or error, show placeholder with projectId
+        if (!snapshot.hasData) {
+          return Row(
+            children: [
+              Icon(
+                Icons.folder_outlined,
+                size: 16,
+                color:
+                    isDarkMode ? AppColors.darkPrimary : AppColors.lightPrimary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                task.projectId == 'inbox' ? 'Inbox' : 'Project',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: textColor,
+                ),
+              ),
+            ],
+          );
+        }
+
+        // Project is available, show complete info
+        final project = snapshot.data!;
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Project emoji or default icon
+            if (project.emoji != null && project.emoji!.isNotEmpty)
+              Text(project.emoji!, style: const TextStyle(fontSize: 16))
+            else
+              Icon(
+                Icons.folder_outlined,
+                size: 16,
+                color:
+                    isDarkMode ? AppColors.darkPrimary : AppColors.lightPrimary,
+              ),
+
+            const SizedBox(width: 4),
+
+            // Project name - debugging info included
+            Flexible(
+              child: Text(
+                project.name,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: textColor,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+
+            // Color indicator
+            const SizedBox(width: 4),
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: Color(project.color),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Add this new method
+  Widget _buildProjectDropdown() {
+    return FutureBuilder<List<Project>>(
+      future: _projectRepository.getAllProjects(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Text('Loading...');
+        }
+
+        final projects = snapshot.data!;
+        return DropdownButton<String>(
+          value: _selectedProjectId,
+          hint: const Text('All Projects'),
+          underline: Container(), // Remove the underline
+          items: [
+            const DropdownMenuItem<String>(
+              child: Text('All Projects'),
+            ),
+            ...projects.map(
+              (project) => DropdownMenuItem<String>(
+                value: project.id,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (project.emoji != null && project.emoji!.isNotEmpty)
+                      Text(project.emoji!, style: const TextStyle(fontSize: 16))
+                    else
+                      const Icon(Icons.folder_outlined, size: 16),
+                    const SizedBox(width: 8),
+                    Text(project.name),
+                    const SizedBox(width: 4),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: Color(project.color),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          onChanged: (String? newValue) {
+            setState(() {
+              _selectedProjectId = newValue;
+            });
+            _reloadTasks();
+          },
+        );
+      },
+    );
   }
 }

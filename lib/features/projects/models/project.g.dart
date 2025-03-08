@@ -23,6 +23,7 @@ class ProjectAdapter extends TypeAdapter<Project> {
       createdAt: fields[4] as int,
       updatedAt: fields[5] as int,
       description: fields[2] as String?,
+      emoji: fields[7] as String?,
       isDefault: fields[6] as bool,
     );
   }
@@ -30,7 +31,7 @@ class ProjectAdapter extends TypeAdapter<Project> {
   @override
   void write(BinaryWriter writer, Project obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(8)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -44,7 +45,9 @@ class ProjectAdapter extends TypeAdapter<Project> {
       ..writeByte(5)
       ..write(obj.updatedAt)
       ..writeByte(6)
-      ..write(obj.isDefault);
+      ..write(obj.isDefault)
+      ..writeByte(7)
+      ..write(obj.emoji);
   }
 
   @override

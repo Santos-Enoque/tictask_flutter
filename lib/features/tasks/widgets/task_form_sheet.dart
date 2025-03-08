@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:tictask/app/theme/colors.dart';
 import 'package:tictask/features/projects/models/project.dart';
 import 'package:tictask/features/projects/repositories/project_repository.dart';
+import 'package:tictask/features/projects/widgets/project_form_sheet.dart';
 import 'package:tictask/features/tasks/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
 import 'package:tictask/injection_container.dart' as di;
@@ -991,6 +992,43 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
     final textColor =
         isDarkMode ? AppColors.darkOnSurface : AppColors.lightOnSurface;
 
+    // Create a value notifier to force rebuilds
+    final refreshNotifier = ValueNotifier<bool>(false);
+
+    // Function to refresh projects
+    Future<void> refreshProjects() async {
+      final projectRepository = di.sl<ProjectRepository>();
+      final projects = await projectRepository.getAllProjects();
+
+      if (mounted) {
+        setState(() {
+          _projects = projects;
+        });
+        // Toggle notifier to force rebuild
+        refreshNotifier.value = !refreshNotifier.value;
+      }
+    }
+
+    Future<void> showProjectForm() async {
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => ProjectFormSheet(
+          onComplete: () async {
+            // Close the form sheet
+            Navigator.of(context).pop();
+
+            // Important: Wait a moment for the database to update
+            await Future.delayed(const Duration(milliseconds: 300));
+
+            // Refresh the projects list
+            await refreshProjects();
+          },
+        ),
+      );
+    }
+
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: backgroundColor,
@@ -998,59 +1036,109 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (BuildContext context) {
-        return Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Select Project',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: textColor,
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close, color: textColor),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-              const Divider(),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _projects.length,
-                  itemBuilder: (context, index) {
-                    final project = _projects[index];
-                    return ListTile(
-                      leading: Icon(
-                        Icons.circle,
-                        color: Color(project.color),
+        return ValueListenableBuilder(
+          valueListenable: refreshNotifier,
+          builder: (context, _, __) {
+            return StatefulBuilder(
+              builder: (BuildContext context, StateSetter setModalState) {
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Select Project',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: textColor,
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              // Add Project Button (Plus Icon)
+                              IconButton(
+                                icon: Icon(
+                                  Icons.add_circle_outline,
+                                  color: isDarkMode
+                                      ? AppColors.darkPrimary
+                                      : AppColors.lightPrimary,
+                                ),
+                                onPressed: showProjectForm,
+                                tooltip: 'Add new project',
+                              ),
+                              // Close Button
+                              IconButton(
+                                icon: Icon(Icons.close, color: textColor),
+                                onPressed: () => Navigator.of(context).pop(),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      title: Text(
-                        project.name,
-                        style: TextStyle(color: textColor),
+                      const Divider(),
+                      Expanded(
+                        child: _projects.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'No projects found',
+                                  style: TextStyle(
+                                    color: textColor.withOpacity(0.7),
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: _projects.length,
+                                itemBuilder: (context, index) {
+                                  final project = _projects[index];
+                                  return ListTile(
+                                    leading: project.emoji != null &&
+                                            project.emoji!.isNotEmpty
+                                        ? Text(
+                                            project.emoji!,
+                                            style:
+                                                const TextStyle(fontSize: 22),
+                                          )
+                                        : const Icon(
+                                            Icons.folder_outlined,
+                                            size: 22,
+                                          ),
+                                    title: Text(
+                                      project.name,
+                                      style: TextStyle(color: textColor),
+                                    ),
+                                    trailing: Container(
+                                      width: 20,
+                                      height: 20,
+                                      decoration: BoxDecoration(
+                                        color: Color(project.color),
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    selected: _selectedProjectId == project.id,
+                                    selectedTileColor: isDarkMode
+                                        ? AppColors.darkPrimary.withOpacity(0.1)
+                                        : AppColors.lightPrimary
+                                            .withOpacity(0.1),
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedProjectId = project.id;
+                                      });
+                                      Navigator.of(context).pop();
+                                    },
+                                  );
+                                },
+                              ),
                       ),
-                      selected: _selectedProjectId == project.id,
-                      selectedTileColor: isDarkMode
-                          ? AppColors.darkPrimary.withOpacity(0.1)
-                          : AppColors.lightPrimary.withOpacity(0.1),
-                      onTap: () {
-                        setState(() {
-                          _selectedProjectId = project.id;
-                        });
-                        Navigator.of(context).pop();
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
         );
       },
     );

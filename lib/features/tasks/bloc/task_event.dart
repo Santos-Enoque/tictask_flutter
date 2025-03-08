@@ -12,20 +12,22 @@ final class LoadTasks extends TaskEvent {
 }
 
 final class LoadTasksByDate extends TaskEvent {
-  const LoadTasksByDate(this.date);
+  const LoadTasksByDate(this.date, {this.projectId});
   final DateTime date;
+  final String? projectId;
 
   @override
-  List<Object?> get props => [date];
+  List<Object?> get props => [date, projectId];
 }
 
 final class LoadTasksInRange extends TaskEvent {
-  const LoadTasksInRange(this.startDate, this.endDate);
+  const LoadTasksInRange(this.startDate, this.endDate, {this.projectId});
   final DateTime startDate;
   final DateTime endDate;
+  final String? projectId;
 
   @override
-  List<Object?> get props => [startDate, endDate];
+  List<Object?> get props => [startDate, endDate, projectId];
 }
 
 final class AddTask extends TaskEvent {

@@ -16,14 +16,16 @@ class AddProject extends ProjectEvent {
     required this.name,
     required this.color,
     this.description,
+    this.emoji,
   });
 
   final String name;
   final int color;
   final String? description;
+  final String? emoji;
 
   @override
-  List<Object?> get props => [name, color, description];
+  List<Object?> get props => [name, color, description, emoji];
 }
 
 class UpdateProject extends ProjectEvent {
@@ -32,15 +34,17 @@ class UpdateProject extends ProjectEvent {
     required this.name,
     required this.color,
     this.description,
+    this.emoji,
   });
 
   final String id;
   final String name;
   final int color;
   final String? description;
+  final String? emoji;
 
   @override
-  List<Object?> get props => [id, name, color, description];
+  List<Object?> get props => [id, name, color, description, emoji];
 }
 
 class DeleteProject extends ProjectEvent {

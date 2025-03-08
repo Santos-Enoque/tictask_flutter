@@ -43,7 +43,15 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     emit(TaskLoading());
     try {
       final tasks = await _taskRepository.getTasksForDate(event.date);
-      emit(TaskLoaded(tasks));
+
+      // Filter by project if specified
+      if (event.projectId != null) {
+        final filteredTasks =
+            tasks.where((task) => task.projectId == event.projectId).toList();
+        emit(TaskLoaded(filteredTasks));
+      } else {
+        emit(TaskLoaded(tasks));
+      }
     } catch (e) {
       emit(TaskError('Failed to load tasks for date: $e'));
     }
@@ -59,7 +67,15 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
         event.startDate,
         event.endDate,
       );
-      emit(TaskLoaded(tasks));
+
+      // Filter by project if specified
+      if (event.projectId != null) {
+        final filteredTasks =
+            tasks.where((task) => task.projectId == event.projectId).toList();
+        emit(TaskLoaded(filteredTasks));
+      } else {
+        emit(TaskLoaded(tasks));
+      }
     } catch (e) {
       emit(TaskError('Failed to load tasks in range: $e'));
     }

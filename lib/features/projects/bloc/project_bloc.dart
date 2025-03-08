@@ -44,6 +44,7 @@ class ProjectBloc extends Bloc<ProjectEvent, ProjectState> {
         name: event.name,
         color: event.color,
         description: event.description,
+        emoji: event.emoji,
       );
       await _projectRepository.saveProject(project);
       final projects = await _projectRepository.getAllProjects();
@@ -70,6 +71,7 @@ class ProjectBloc extends Bloc<ProjectEvent, ProjectState> {
         name: event.name,
         description: event.description,
         color: event.color,
+        emoji: event.emoji,
       );
 
       await _projectRepository.saveProject(updatedProject);
