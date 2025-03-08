@@ -432,87 +432,89 @@ class _TimerScreenState extends State<TimerScreen> {
     final projectRepository = GetIt.I<ProjectRepository>();
 
     return Drawer(
-      child: Column(
-        children: [
-          // Header with title and add button
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Header with title and add button
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Projects',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    tooltip: 'Add Project',
+                    onPressed: () {
+                      // Navigate to add project screen
+                      Navigator.pop(context);
+                      context.push(Routes.tasks);
+                    },
+                  ),
+                ],
+              ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Projects',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  tooltip: 'Add Project',
-                  onPressed: () {
-                    // Navigate to add project screen
-                    Navigator.pop(context);
-                    context.push(
-                      Routes.tasks,
-                    ); // Navigate to tasks where projects can be added
-                  },
-                ),
-              ],
-            ),
-          ),
 
-          // Projects list
-          Expanded(
-            child: FutureBuilder<List<Project>>(
-              future: projectRepository.getAllProjects(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
-                }
-
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(
-                    child: Text('No projects found'),
-                  );
-                }
-
-                final projects = snapshot.data!;
-                return ListView.builder(
-                  itemCount: projects.length,
-                  itemBuilder: (context, index) {
-                    final project = projects[index];
-                    return ListTile(
-                      leading:
-                          project.emoji != null && project.emoji!.isNotEmpty
-                              ? Text(
-                                  project.emoji!,
-                                  style: const TextStyle(fontSize: 24),
-                                )
-                              : const Icon(Icons.folder_outlined),
-                      title: Text(project.name),
-                      trailing: Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: Color(project.color),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context);
-                        // Navigate to tasks with pre-selected project
-                        context.push(Routes.tasks);
-                      },
+            // Projects list
+            Expanded(
+              child: FutureBuilder<List<Project>>(
+                future: projectRepository.getAllProjects(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
                     );
-                  },
-                );
-              },
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(
+                      child: Text('No projects found'),
+                    );
+                  }
+
+                  final projects = snapshot.data!;
+                  return ListView.builder(
+                    itemCount: projects.length,
+                    itemBuilder: (context, index) {
+                      final project = projects[index];
+                      return ListTile(
+                        leading:
+                            project.emoji != null && project.emoji!.isNotEmpty
+                                ? Text(
+                                    project.emoji!,
+                                    style: const TextStyle(fontSize: 24),
+                                  )
+                                : const Icon(Icons.folder_outlined),
+                        title: Text(project.name),
+                        trailing: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: Color(project.color),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context); // Close drawer
+
+                          // Use go instead of push to avoid back button
+                          // Pass project ID as a query parameter to select it in tasks screen
+                          context.go('${Routes.tasks}?projectId=${project.id}');
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
