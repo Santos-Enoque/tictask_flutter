@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tictask/app/routes/routes.dart';
 import 'package:tictask/app/screens/home_screen.dart';
 import 'package:tictask/app/screens/not_found_screen.dart';
+import 'package:tictask/features/timer/screens/timer_screen.dart';
 
 /// App router configuration
 GoRouter getAppRouter() {
@@ -17,6 +18,18 @@ GoRouter getAppRouter() {
       GoRoute(
         path: Routes.timer,
         builder: (context, state) => const HomeScreen(),
+        routes: [
+          GoRoute(
+            path: 'task/:taskId',
+            builder: (context, state) {
+              final taskId = state.pathParameters['taskId'];
+              return TimerScreen(
+                taskId: taskId,
+                autoStart: true,
+              );
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: Routes.tasks,

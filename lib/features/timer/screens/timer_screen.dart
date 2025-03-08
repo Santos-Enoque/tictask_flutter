@@ -8,9 +8,16 @@ import 'package:tictask/features/timer/models/models.dart';
 import 'package:tictask/features/timer/widgets/widgets.dart';
 
 class TimerScreen extends StatefulWidget {
-  const TimerScreen({super.key, this.showNavBar = true});
+  const TimerScreen({
+    super.key,
+    this.showNavBar = true,
+    this.taskId,
+    this.autoStart = false,
+  });
 
   final bool showNavBar;
+  final String? taskId;
+  final bool autoStart;
 
   @override
   State<TimerScreen> createState() => _TimerScreenState();
@@ -20,7 +27,17 @@ class _TimerScreenState extends State<TimerScreen> {
   @override
   void initState() {
     super.initState();
+
+    // Initialize the timer
     context.read<TimerBloc>().add(const TimerInitialized());
+
+    // Auto-start timer with task if provided
+    if (widget.autoStart && widget.taskId != null) {
+      // Use a post-frame callback to ensure the TimerBloc is properly initialized
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<TimerBloc>().add(TimerStarted(taskId: widget.taskId));
+      });
+    }
   }
 
   @override
@@ -143,7 +160,7 @@ class _TimerScreenState extends State<TimerScreen> {
     final primaryColor = Theme.of(context).colorScheme.primary;
     final secondaryColor = Theme.of(context).colorScheme.secondary;
 
-    if (state.status == TimerStatus.idle) {
+    if (state.status == TimerUIStatus.initial) {
       return ElevatedButton.icon(
         style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
@@ -160,7 +177,7 @@ class _TimerScreenState extends State<TimerScreen> {
       );
     }
 
-    if (state.status == TimerStatus.running) {
+    if (state.status == TimerUIStatus.running) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -187,7 +204,7 @@ class _TimerScreenState extends State<TimerScreen> {
       );
     }
 
-    if (state.status == TimerStatus.paused) {
+    if (state.status == TimerUIStatus.paused) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -215,10 +232,10 @@ class _TimerScreenState extends State<TimerScreen> {
       );
     }
 
-    if (state.status == TimerStatus.break_) {
-      // Break time logic
+    if (state.status == TimerUIStatus.finished ||
+        state.status == TimerUIStatus.breakReady) {
+      // Focus ended, show break options
       if (state.timerMode == TimerMode.focus) {
-        // Focus ended, show break options
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -300,6 +317,34 @@ class _TimerScreenState extends State<TimerScreen> {
           ],
         );
       }
+    }
+
+    // For break running or any other state, show appropriate controls
+    if (state.status == TimerUIStatus.breakRunning) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          FloatingActionButton(
+            backgroundColor: secondaryColor,
+            onPressed: () => context.read<TimerBloc>().add(const TimerPaused()),
+            child: const Icon(
+              Icons.pause,
+              size: 30,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 20),
+          FloatingActionButton(
+            backgroundColor: Colors.red,
+            onPressed: () => context.read<TimerBloc>().add(const TimerReset()),
+            child: const Icon(
+              Icons.refresh,
+              size: 30,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      );
     }
 
     // Fallback for other states

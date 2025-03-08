@@ -7,12 +7,14 @@ class AppScaffold extends StatelessWidget {
     required this.child,
     super.key,
     this.title,
+    this.titleWidget,
     this.actions,
     this.showBottomNav = true,
     this.floatingActionButton,
   });
   final Widget child;
   final String? title;
+  final Widget? titleWidget;
   final List<Widget>? actions;
   final bool showBottomNav;
   final Widget? floatingActionButton;
@@ -20,9 +22,9 @@ class AppScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: title != null
+      appBar: title != null || titleWidget != null
           ? AppBar(
-              title: Text(title!),
+              title: titleWidget ?? (title != null ? Text(title!) : null),
               actions: actions,
             )
           : null,

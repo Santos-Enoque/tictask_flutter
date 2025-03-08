@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:tictask/app/constants/enums.dart';
+import 'package:tictask/app/routes/routes.dart';
 import 'package:tictask/app/widgets/app_scaffold.dart';
 import 'package:tictask/features/tasks/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
+import 'package:tictask/features/tasks/widgets/date_scroll_picker.dart';
 import 'package:tictask/features/tasks/widgets/task_form_sheet.dart';
 
 class TasksScreen extends StatefulWidget {
@@ -17,30 +20,58 @@ class TasksScreen extends StatefulWidget {
 }
 
 class _TasksScreenState extends State<TasksScreen> {
+  // Selected date for calendar view
+  DateTime _selectedDate = DateTime.now();
+
+  // Date range for range picker
   DateTimeRange _dateRange = DateTimeRange(
     start: DateTime.now().subtract(const Duration(days: 7)),
     end: DateTime.now().add(const Duration(days: 7)),
   );
 
+  // View mode: 'day' for single day view, 'range' for date range view
+  String _viewMode = 'day';
+
   @override
   void initState() {
     super.initState();
-    context
-        .read<TaskBloc>()
-        .add(LoadTasksInRange(_dateRange.start, _dateRange.end));
+    // Start with tasks for the current day
+    context.read<TaskBloc>().add(LoadTasksByDate(_selectedDate));
   }
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
       title: 'Tasks',
+      titleWidget: BlocBuilder<TaskBloc, TaskState>(
+        builder: (context, state) {
+          if (state is TaskLoaded) {
+            // Calculate completion percentage
+            final completionPercentage =
+                _calculateCompletionPercentage(state.tasks);
+
+            return Row(
+              children: [
+                const Text('Tasks'),
+                const SizedBox(width: 8),
+                _buildCompletionBadge(completionPercentage),
+              ],
+            );
+          }
+          return const Text('Tasks');
+        },
+      ),
       showBottomNav: widget.showNavBar,
       actions: [
-        // Date Range Picker Button
+        // Toggle between day view and range view
         IconButton(
-          icon: const Icon(Icons.date_range),
-          tooltip: 'Select Date Range',
-          onPressed: _showDateRangePicker,
+          icon: Icon(
+            _viewMode == 'day' ? Icons.date_range : Icons.calendar_today,
+          ),
+          tooltip: _viewMode == 'day'
+              ? 'Switch to Range View'
+              : 'Switch to Day View',
+          onPressed: _toggleViewMode,
         ),
         // Add Task Button
         IconButton(
@@ -49,35 +80,111 @@ class _TasksScreenState extends State<TasksScreen> {
           onPressed: _showTaskFormSheet,
         ),
       ],
-      child: BlocConsumer<TaskBloc, TaskState>(
-        listener: (context, state) {
-          if (state is TaskError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
-          } else if (state is TaskActionSuccess) {
-            // Show success message
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
+      child: Column(
+        children: [
+          // Show date picker based on current view mode
+          if (_viewMode == 'day')
+            _buildScrollableCalendar()
+          else
+            _buildDateRangeDisplay(),
 
-            // Reload tasks for the current date range after any successful action
-            context
-                .read<TaskBloc>()
-                .add(LoadTasksInRange(_dateRange.start, _dateRange.end));
-          }
-        },
-        builder: (context, state) {
-          if (state is TaskLoading) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (state is TaskLoaded) {
-            return _buildTaskList(state.tasks);
-          } else {
-            return const Center(child: Text('No tasks found'));
-          }
-        },
+          // Task list
+          Expanded(
+            child: BlocConsumer<TaskBloc, TaskState>(
+              listener: (context, state) {
+                if (state is TaskError) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(state.message)),
+                  );
+                } else if (state is TaskActionSuccess) {
+                  // Show success message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(state.message)),
+                  );
+
+                  // Reload tasks based on current view mode
+                  _reloadTasks();
+                }
+              },
+              builder: (context, state) {
+                if (state is TaskLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (state is TaskLoaded) {
+                  return _buildTaskList(state.tasks);
+                } else {
+                  return const Center(child: Text('No tasks found'));
+                }
+              },
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  Widget _buildScrollableCalendar() {
+    return DateScrollPicker(
+      selectedDate: _selectedDate,
+      onDateSelected: (date) {
+        setState(() {
+          _selectedDate = date;
+        });
+        context.read<TaskBloc>().add(LoadTasksByDate(_selectedDate));
+      },
+    );
+  }
+
+  Widget _buildDateRangeDisplay() {
+    return GestureDetector(
+      onTap: _showDateRangePicker,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Theme.of(context)
+              .colorScheme
+              .surfaceContainerHighest
+              .withOpacity(0.3),
+          border: Border(
+            bottom: BorderSide(
+              color: Theme.of(context).dividerColor,
+              width: 0.5,
+            ),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.date_range, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              '${DateFormat('MMM d').format(_dateRange.start)} - ${DateFormat('MMM d, yyyy').format(_dateRange.end)}',
+              style: Theme.of(context).textTheme.titleSmall!.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.arrow_drop_down, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _toggleViewMode() {
+    setState(() {
+      _viewMode = _viewMode == 'day' ? 'range' : 'day';
+    });
+    _reloadTasks();
+  }
+
+  void _reloadTasks() {
+    if (_viewMode == 'day') {
+      context.read<TaskBloc>().add(LoadTasksByDate(_selectedDate));
+    } else {
+      context
+          .read<TaskBloc>()
+          .add(LoadTasksInRange(_dateRange.start, _dateRange.end));
+    }
   }
 
   Future<void> _showDateRangePicker() async {
@@ -124,12 +231,8 @@ class _TasksScreenState extends State<TasksScreen> {
             Navigator.of(context).pop();
 
             // The TaskBloc events will be dispatched from the TaskFormSheet
-            // After the sheet is closed, it will reload the tasks for the selected date
-            if (task == null) {
-              context
-                  .read<TaskBloc>()
-                  .add(LoadTasksInRange(_dateRange.start, _dateRange.end));
-            }
+            // After the sheet is closed, it will reload the tasks
+            _reloadTasks();
           },
         );
       },
@@ -414,10 +517,13 @@ class _TasksScreenState extends State<TasksScreen> {
                         icon: const Icon(Icons.play_circle),
                         tooltip: 'Start Pomodoro',
                         onPressed: () {
+                          // Mark task as in progress
                           context
                               .read<TaskBloc>()
                               .add(MarkTaskAsInProgress(task.id));
-                          // TODO: Navigate to timer with this task selected
+
+                          // Navigate to timer with this task selected
+                          context.push('${Routes.timer}/task/${task.id}');
                         },
                       )
                     : null,
@@ -428,5 +534,46 @@ class _TasksScreenState extends State<TasksScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildCompletionBadge(double completionPercentage) {
+    // Determine color based on completion percentage
+    final Color badgeColor;
+    if (completionPercentage <= 50) {
+      badgeColor = Colors.red;
+    } else if (completionPercentage <= 89) {
+      badgeColor = Colors.orange;
+    } else {
+      badgeColor = Colors.green;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: badgeColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        '${completionPercentage.toStringAsFixed(0)}% completed',
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  double _calculateCompletionPercentage(List<Task> tasks) {
+    if (tasks.isEmpty) return 0;
+
+    var completedTasks = 0;
+    for (final task in tasks) {
+      if (task.status == TaskStatus.completed) {
+        completedTasks++;
+      }
+    }
+
+    return (completedTasks / tasks.length) * 100;
   }
 }
