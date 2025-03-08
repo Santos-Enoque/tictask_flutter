@@ -1,0 +1,267 @@
+import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
+import 'package:syncfusion_flutter_calendar/calendar.dart';
+import 'package:tictask/features/projects/models/project.dart';
+import 'package:tictask/features/projects/repositories/project_repository.dart';
+import 'package:tictask/features/tasks/models/task.dart';
+import 'package:tictask/features/tasks/repositories/task_repository.dart';
+
+class CalendarScreen extends StatefulWidget {
+  const CalendarScreen({super.key, this.showNavBar = true});
+
+  final bool showNavBar;
+
+  @override
+  State<CalendarScreen> createState() => _CalendarScreenState();
+}
+
+class _CalendarScreenState extends State<CalendarScreen> {
+  final TaskRepository _taskRepository = GetIt.I<TaskRepository>();
+  final ProjectRepository _projectRepository = GetIt.I<ProjectRepository>();
+
+  CalendarView _calendarView = CalendarView.day;
+  final CalendarController _calendarController = CalendarController();
+
+  // Maps to store projects by ID for quick lookup
+  Map<String, Project> _projectsMap = {};
+
+  // Flag to track if data is loading
+  bool _isLoading = true;
+
+  // Add this property to the _CalendarScreenState class
+  List<Task> _tasks = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProjects();
+    _loadTasks(); // Add this line to load tasks when the screen initializes
+  }
+
+  Future<void> _loadProjects() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final projects = await _projectRepository.getAllProjects();
+
+      // Create a map for quick project lookup by ID
+      _projectsMap = {
+        for (final project in projects) project.id: project,
+      };
+
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load projects: $e')),
+        );
+      }
+    }
+  }
+
+  // Add this method to load tasks
+  Future<void> _loadTasks() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Get tasks for the next 30 days
+      final now = DateTime.now();
+      final endDate = now.add(const Duration(days: 30));
+      final tasks = await _taskRepository.getTasksInDateRange(now, endDate);
+
+      setState(() {
+        _tasks = tasks;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load tasks: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _calendarController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Calendar'),
+        actions: [
+          PopupMenuButton<CalendarView>(
+            icon: const Icon(Icons.calendar_view_day),
+            tooltip: 'Calendar View',
+            onSelected: (CalendarView view) {
+              setState(() {
+                _calendarView = view;
+                _calendarController.view = view;
+              });
+            },
+            itemBuilder: (BuildContext context) =>
+                <PopupMenuEntry<CalendarView>>[
+              const PopupMenuItem<CalendarView>(
+                value: CalendarView.day,
+                child: Text('Day View'),
+              ),
+              const PopupMenuItem<CalendarView>(
+                value: CalendarView.week,
+                child: Text('Week View'),
+              ),
+              const PopupMenuItem<CalendarView>(
+                value: CalendarView.month,
+                child: Text('Month View'),
+              ),
+            ],
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SfCalendar(
+              controller: _calendarController,
+              view: _calendarView,
+              firstDayOfWeek: 1, // Monday
+              dataSource: _getCalendarDataSource(),
+              monthViewSettings: const MonthViewSettings(
+                showAgenda: true,
+                agendaViewHeight: 200,
+              ),
+              timeSlotViewSettings: const TimeSlotViewSettings(
+                timeFormat: 'h:mm a',
+                timeIntervalHeight: 60,
+                timeTextStyle: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 12,
+                ),
+              ),
+              appointmentBuilder: _buildAppointment,
+            ),
+    );
+  }
+
+  Widget _buildAppointment(
+    BuildContext context,
+    CalendarAppointmentDetails details,
+  ) {
+    final task = details.appointments.first as Task;
+    final project = _projectsMap[task.projectId];
+    final projectColor = project != null
+        ? Color(project.color)
+        : Theme.of(context).colorScheme.primary;
+
+    return Container(
+      width: details.bounds.width,
+      height: details.bounds.height,
+      decoration: BoxDecoration(
+        color: projectColor.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (project != null && project.emoji != null)
+                Text(
+                  project.emoji!,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  task.title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          if (details.bounds.height > 40 && task.description != null)
+            Expanded(
+              child: Text(
+                task.description!,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.white,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  TaskDataSource _getCalendarDataSource() {
+    return TaskDataSource(_tasks, _projectsMap);
+  }
+}
+
+class TaskDataSource extends CalendarDataSource {
+  TaskDataSource(List<Task> tasks, this._projectsMap) {
+    appointments = tasks; // Set the appointments directly
+  }
+
+  final Map<String, Project> _projectsMap;
+
+  @override
+  DateTime getStartTime(int index) {
+    final task = appointments![index] as Task;
+    return DateTime.fromMillisecondsSinceEpoch(task.startDate);
+  }
+
+  @override
+  DateTime getEndTime(int index) {
+    final task = appointments![index] as Task;
+    return DateTime.fromMillisecondsSinceEpoch(task.endDate);
+  }
+
+  @override
+  String getSubject(int index) {
+    final task = appointments![index] as Task;
+    return task.title;
+  }
+
+  @override
+  Color getColor(int index) {
+    final task = appointments![index] as Task;
+    final project = _projectsMap[task.projectId];
+
+    if (project != null) {
+      return Color(project.color);
+    }
+
+    // Fallback color if project not found
+    return Colors.blue;
+  }
+
+  @override
+  bool isAllDay(int index) {
+    final task = appointments![index] as Task;
+    return task.ongoing;
+  }
+}

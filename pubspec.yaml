@@ -24,6 +24,7 @@ dependencies:
   intl: ^0.19.0
   logger: ^2.0.2
   lucide_icons: ^0.257.0
+  syncfusion_flutter_calendar: ^28.2.9
   path_provider: ^2.1.1
   uuid: ^4.2.1
 

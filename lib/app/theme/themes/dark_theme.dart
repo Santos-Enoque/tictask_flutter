@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tictask/app/theme/colors.dart';
 
@@ -35,13 +36,21 @@ ThemeData getDarkTheme() {
       inverseSurface: AppColors.lightSurface,
       onInverseSurface: AppColors.lightOnSurface,
       inversePrimary: AppColors.lightPrimary,
-      surfaceTint: AppColors.darkPrimary.withAlpha(26),
+      surfaceTint: Colors.transparent,
     ),
     scaffoldBackgroundColor: AppColors.darkBackground,
-    appBarTheme: const AppBarTheme(
+    appBarTheme: AppBarTheme(
       backgroundColor: AppColors.darkBackground,
       foregroundColor: AppColors.darkOnBackground,
       elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      systemOverlayStyle: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: AppColors.darkBackground,
+        statusBarBrightness: Brightness.dark,
+        statusBarIconBrightness: Brightness.light,
+      ),
     ),
     cardTheme: CardTheme(
       color: AppColors.darkSurface,
