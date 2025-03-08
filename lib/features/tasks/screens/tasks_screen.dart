@@ -523,7 +523,10 @@ class _TasksScreenState extends State<TasksScreen> {
                               .add(MarkTaskAsInProgress(task.id));
 
                           // Navigate to timer with this task selected
-                          context.push('${Routes.timer}/task/${task.id}');
+                          context.pushReplacement(
+                            Routes.timer,
+                            extra: {'taskId': task.id, 'autoStart': true},
+                          );
                         },
                       )
                     : null,

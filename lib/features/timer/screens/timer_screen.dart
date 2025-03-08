@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tictask/app/routes/routes.dart';
 import 'package:tictask/app/theme/dimensions.dart';
+import 'package:tictask/features/tasks/models/task.dart';
+import 'package:tictask/features/tasks/repositories/task_repository.dart';
 import 'package:tictask/features/timer/bloc/timer_bloc.dart';
 import 'package:tictask/features/timer/models/models.dart';
 import 'package:tictask/features/timer/widgets/widgets.dart';
@@ -24,19 +26,51 @@ class TimerScreen extends StatefulWidget {
 }
 
 class _TimerScreenState extends State<TimerScreen> {
+  // Add a field to store the task future
+  Future<Task?>? _taskFuture;
+  String? _currentTaskId;
+  bool _hasInitializedTask = false;
+
   @override
   void initState() {
     super.initState();
 
     // Initialize the timer
     context.read<TimerBloc>().add(const TimerInitialized());
+  }
 
-    // Auto-start timer with task if provided
-    if (widget.autoStart && widget.taskId != null) {
-      // Use a post-frame callback to ensure the TimerBloc is properly initialized
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Only do this once per lifecycle
+    if (!_hasInitializedTask && widget.autoStart && widget.taskId != null) {
+      _hasInitializedTask = true;
+
+      // This is safer to access providers
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        // First, load the task
+        _updateTaskFuture(widget.taskId!);
+
+        // Then start the timer with the task
         context.read<TimerBloc>().add(TimerStarted(taskId: widget.taskId));
       });
+    }
+  }
+
+  // Update this method to not use setState
+  void _updateTaskFuture(String taskId) {
+    try {
+      final taskRepository = context.read<TaskRepository>();
+      _taskFuture = taskRepository.getTaskById(taskId);
+      _currentTaskId = taskId;
+
+      // Safely update the state after the task is loaded
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      print('Error loading task: $e');
     }
   }
 
@@ -48,6 +82,7 @@ class _TimerScreenState extends State<TimerScreen> {
       appBar: AppBar(
         title: const Text('TicTask Timer'),
         centerTitle: true,
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -58,7 +93,14 @@ class _TimerScreenState extends State<TimerScreen> {
           ),
         ],
       ),
-      body: BlocBuilder<TimerBloc, TimerState>(
+      body: BlocConsumer<TimerBloc, TimerState>(
+        listener: (context, state) {
+          // Update the task data when the timer state changes
+          if (state.currentTaskId != null &&
+              state.currentTaskId != _currentTaskId) {
+            _updateTaskFuture(state.currentTaskId!);
+          }
+        },
         builder: (context, state) {
           // Determine the status text and color based on state
           String statusText;
@@ -86,6 +128,59 @@ class _TimerScreenState extends State<TimerScreen> {
                     statusText: statusText,
                     progressColor: statusColor,
                   ),
+
+                  // Gap
+                  const SizedBox(height: AppDimensions.md),
+
+                  // Task name display - use the cached future
+                  if (state.currentTaskId != null && _taskFuture != null)
+                    FutureBuilder<Task?>(
+                      future: _taskFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const CircularProgressIndicator();
+                        }
+
+                        if (snapshot.hasData && snapshot.data != null) {
+                          final task = snapshot.data!;
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppDimensions.md,
+                              vertical: AppDimensions.sm,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest,
+                              borderRadius:
+                                  BorderRadius.circular(AppDimensions.md),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Current Task',
+                                  style:
+                                      Theme.of(context).textTheme.labelMedium,
+                                ),
+                                Text(
+                                  task.title,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return const SizedBox.shrink();
+                      },
+                    ),
 
                   // Gap
                   const SizedBox(height: AppDimensions.xxl),

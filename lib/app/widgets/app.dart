@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 import 'package:tictask/app/constants/app_constants.dart';
 import 'package:tictask/app/routes/app_router.dart';
 import 'package:tictask/app/theme/app_theme.dart';
 import 'package:tictask/app/theme/themes/dark_theme.dart';
 import 'package:tictask/app/theme/themes/light_theme.dart';
 import 'package:tictask/features/tasks/bloc/task_bloc.dart';
+import 'package:tictask/features/tasks/repositories/task_repository.dart';
 import 'package:tictask/features/timer/bloc/timer_bloc.dart';
 import 'package:tictask/injection_container.dart';
 
@@ -28,6 +30,9 @@ class App extends StatelessWidget {
         ),
         BlocProvider<TaskBloc>(
           create: (_) => sl<TaskBloc>(),
+        ),
+        Provider<TaskRepository>(
+          create: (_) => sl<TaskRepository>(),
         ),
       ],
       child: BlocBuilder<ThemeBloc, ThemeState>(
