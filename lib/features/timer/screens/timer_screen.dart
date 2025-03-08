@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/app/routes/routes.dart';
 import 'package:tictask/app/theme/dimensions.dart';
+import 'package:tictask/features/tasks/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
 import 'package:tictask/features/tasks/repositories/task_repository.dart';
 import 'package:tictask/features/timer/bloc/timer_bloc.dart';
@@ -42,10 +43,13 @@ class _TimerScreenState extends State<TimerScreen> {
   Future<Task?>? _taskFuture;
   String? _currentTaskId;
   bool _hasInitializedTask = false;
+  late TaskRepository _taskRepository;
+  String? _selectedTaskId;
 
   @override
   void initState() {
     super.initState();
+    _taskRepository = context.read<TaskRepository>();
 
     // Initialize the timer
     context.read<TimerBloc>().add(const TimerInitialized());
@@ -304,7 +308,7 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  // New method to build iOS-style task dropdown in app bar
+  // Replace _buildTaskDropdown method with this
   Widget _buildTaskDropdown(BuildContext context) {
     return BlocBuilder<TimerBloc, TimerState>(
       builder: (context, state) {
@@ -313,237 +317,103 @@ class _TimerScreenState extends State<TimerScreen> {
             state.status == TimerUIStatus.breakRunning ||
             state.status == TimerUIStatus.paused;
 
-        return GestureDetector(
-          // Disable the gesture detector if timer is active
-          onTap: isTimerActive ? null : () => _showTaskSelectionModal(context),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimensions.sm,
-              vertical: AppDimensions.xs,
-            ),
-            decoration: BoxDecoration(
-              color: Theme.of(context)
-                  .colorScheme
-                  .surfaceContainerHighest
-                  .withOpacity(
-                    isTimerActive ? 0.2 : 0.3,
-                  ), // Dim the container if disabled
-              borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-              // Add a subtle border when disabled
-              border: isTimerActive
-                  ? Border.all(
-                      color: Theme.of(context).disabledColor.withOpacity(0.3),
-                    )
-                  : null,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (state.currentTaskId != null && _taskFuture != null)
-                  Flexible(
-                    child: FutureBuilder<Task?>(
-                      future: _taskFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          );
-                        }
+        if (isTimerActive &&
+            _taskFuture != null &&
+            state.currentTaskId != null) {
+          // Show current task when timer is active
+          return FutureBuilder<Task?>(
+            future: _taskFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                );
+              }
 
-                        if (snapshot.hasData && snapshot.data != null) {
-                          return Text(
-                            snapshot.data!.title,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  // Apply disabled style if timer is active
-                                  color: isTimerActive
-                                      ? Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.color
-                                          ?.withOpacity(0.7)
-                                      : null,
-                                ),
+              if (snapshot.hasData && snapshot.data != null) {
+                return Text(
+                  snapshot.data!.title,
+                  style: Theme.of(context).textTheme.titleMedium,
+                  overflow: TextOverflow.ellipsis,
+                );
+              }
+
+              return const Text('No Task Selected');
+            },
+          );
+        }
+
+        // Show dropdown when timer is not active
+        return FutureBuilder<List<Task>>(
+          future: Future.value(
+            _taskRepository.getAllTasks().then(
+                  (tasks) => tasks
+                      .where((task) => task.status != TaskStatus.completed)
+                      .toList(),
+                ),
+          ),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Text('Loading...');
+            }
+
+            final tasks = snapshot.data!;
+            return DropdownButton<String>(
+              value: _selectedTaskId ?? state.currentTaskId,
+              hint: const Text('Select Task'),
+              underline: Container(),
+              items: [
+                const DropdownMenuItem<String>(
+                  child: Text('No Task'),
+                ),
+                ...tasks.map(
+                  (task) => DropdownMenuItem<String>(
+                    value: task.id,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.task_alt, size: 16),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            task.title,
                             overflow: TextOverflow.ellipsis,
-                          );
-                        }
-
-                        return Text(
-                          'Select Task',
-                          style: TextStyle(
-                            // Apply disabled style if timer is active
-                            color: isTimerActive
-                                ? Theme.of(context).disabledColor
-                                : null,
                           ),
-                        );
-                      },
-                    ),
-                  )
-                else
-                  Text(
-                    'Select Task',
-                    style: TextStyle(
-                      // Apply disabled style if timer is active
-                      color: isTimerActive
-                          ? Theme.of(context).disabledColor
-                          : null,
+                        ),
+                      ],
                     ),
                   ),
-                const SizedBox(width: AppDimensions.xs),
-                Icon(
-                  Icons.arrow_drop_down,
-                  size: 20,
-                  // Apply disabled style if timer is active
-                  color: isTimerActive ? Theme.of(context).disabledColor : null,
                 ),
               ],
-            ),
-          ),
+              onChanged: (String? newValue) async {
+                if (newValue == _selectedTaskId) return;
+
+                // Mark task as in progress
+                if (newValue != null) {
+                  await _taskRepository.markTaskAsInProgress(newValue);
+                  context.read<TaskBloc>().add(const LoadTasks());
+
+                  // Update UI and prepare timer
+                  setState(() {
+                    _selectedTaskId = newValue;
+                    _updateTaskFuture(newValue);
+                  });
+
+                  // Set pending task
+                  TimerScreen.setPendingTask(newValue);
+                } else {
+                  setState(() {
+                    _selectedTaskId = null;
+                  });
+                }
+              },
+            );
+          },
         );
       },
     );
-  }
-
-  // New method to show task selection modal with todo tasks
-  Future<void> _showTaskSelectionModal(BuildContext context) async {
-    // Check if timer is active
-    final timerState = context.read<TimerBloc>().state;
-    final isTimerActive = timerState.status == TimerUIStatus.running ||
-        timerState.status == TimerUIStatus.breakRunning ||
-        timerState.status == TimerUIStatus.paused;
-
-    // Don't show the modal if the timer is active
-    if (isTimerActive) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Cannot change task while timer is running. Complete or cancel the current timer first.',
-          ),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
-
-    final taskRepository = context.read<TaskRepository>();
-
-    // Get today's tasks with todo status
-    final today = DateTime.now();
-
-    // Show loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      // Get tasks for today
-      final allTasks = await taskRepository.getTasksForDate(today);
-
-      // Filter for todo tasks
-      final tasks =
-          allTasks.where((task) => task.status == TaskStatus.todo).toList();
-
-      // Dismiss loading dialog
-      Navigator.of(context).pop();
-
-      if (tasks.isEmpty) {
-        // Show message if no tasks
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('No Tasks'),
-            content: const Text(
-              'No todo tasks found for today. Would you like to create one?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  context.push(Routes.tasks);
-                },
-                child: const Text('Create Task'),
-              ),
-            ],
-          ),
-        );
-        return;
-      }
-
-      // Show task selection bottom sheet
-      showModalBottomSheet(
-        context: context,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(AppDimensions.radiusLg),
-          ),
-        ),
-        builder: (context) => Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(AppDimensions.md),
-              child: Text(
-                'Select a Task',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-            const Divider(),
-            Expanded(
-              child: ListView.builder(
-                itemCount: tasks.length,
-                itemBuilder: (context, index) {
-                  final task = tasks[index];
-                  return ListTile(
-                    title: Text(task.title),
-                    subtitle: Text(task.description ?? ''),
-                    leading: const Icon(Icons.task_alt),
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      _updateTaskFuture(task.id);
-                      context
-                          .read<TimerBloc>()
-                          .add(TimerStarted(taskId: task.id));
-                    },
-                  );
-                },
-              ),
-            ),
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(AppDimensions.md),
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    context.push(Routes.tasks);
-                  },
-                  child: const Text('Create New Task'),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      // Dismiss loading dialog
-      Navigator.of(context).pop();
-
-      // Show error
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading tasks: $e')),
-      );
-    }
   }
 
   Widget _buildDrawer(BuildContext context) {
