@@ -179,9 +179,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Create a key that changes when the view changes to force a rebuild
+    final calendarKey = ValueKey('calendar-$_calendarView');
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Calendar'),
+        title: Text(
+          _calendarView == CalendarView.day
+              ? 'Calendar'
+              : 'Calendar - ${_calendarView.toString().replaceAll('CalendarView.', '')} View',
+        ),
         actions: [
           PopupMenuButton<CalendarView>(
             icon: const Icon(Icons.calendar_view_day),
@@ -236,10 +243,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : SfCalendar(
+                    key: calendarKey,
                     controller: _calendarController,
                     view: _calendarView,
                     firstDayOfWeek: 1, // Monday
                     dataSource: _getCalendarDataSource(),
+                    // Hide the header in day view
+                    headerHeight: _calendarView == CalendarView.day ? 0 : 40,
+                    // Hide the view header in day view (the row showing dates)
+                    viewHeaderHeight:
+                        _calendarView == CalendarView.day ? 0 : 60,
                     monthViewSettings: const MonthViewSettings(
                       showAgenda: true,
                       agendaViewHeight: 200,
@@ -348,6 +361,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   TaskDataSource _getCalendarDataSource() {
     return TaskDataSource(_tasks, _projectsMap);
+  }
+
+  // Helper method to get the first day of the week for a given date
+  DateTime _getFirstDayOfWeek(DateTime date) {
+    // Get the day of the week (1 = Monday, 7 = Sunday)
+    final dayOfWeek = date.weekday;
+    // Calculate the difference to the first day of the week (Monday)
+    final difference = dayOfWeek - 1;
+    // Subtract the difference to get the first day of the week
+    return date.subtract(Duration(days: difference));
   }
 }
 
