@@ -74,25 +74,25 @@ class _TimerScreenState extends State<TimerScreen> {
     }
   }
 
+  // Navigate to task selection
+  void _navigateToTaskSelection() {
+    context.push(Routes.tasks).then((selectedTaskId) {
+      if (selectedTaskId != null && selectedTaskId is String) {
+        _updateTaskFuture(selectedTaskId);
+        context.read<TimerBloc>().add(TimerStarted(taskId: selectedTaskId));
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('TicTask Timer'),
         centerTitle: true,
         automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              // Navigate to settings screen
-              context.push(Routes.settings);
-            },
-          ),
-        ],
       ),
+      drawer: _buildDrawer(context),
       body: BlocConsumer<TimerBloc, TimerState>(
         listener: (context, state) {
           // Update the task data when the timer state changes
@@ -117,81 +117,12 @@ class _TimerScreenState extends State<TimerScreen> {
           }
 
           return SafeArea(
-            child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppDimensions.md),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Timer display
-                  TimerDisplay(
-                    timeRemaining: state.timeRemaining,
-                    progress: state.progress,
-                    statusText: statusText,
-                    progressColor: statusColor,
-                  ),
-
-                  // Gap
+                  // 1. Stats at the top
                   const SizedBox(height: AppDimensions.md),
-
-                  // Task name display - use the cached future
-                  if (state.currentTaskId != null && _taskFuture != null)
-                    FutureBuilder<Task?>(
-                      future: _taskFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const CircularProgressIndicator();
-                        }
-
-                        if (snapshot.hasData && snapshot.data != null) {
-                          final task = snapshot.data!;
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppDimensions.md,
-                              vertical: AppDimensions.sm,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .surfaceContainerHighest,
-                              borderRadius:
-                                  BorderRadius.circular(AppDimensions.md),
-                            ),
-                            child: Column(
-                              children: [
-                                Text(
-                                  'Current Task',
-                                  style:
-                                      Theme.of(context).textTheme.labelMedium,
-                                ),
-                                Text(
-                                  task.title,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-
-                        return const SizedBox.shrink();
-                      },
-                    ),
-
-                  // Gap
-                  const SizedBox(height: AppDimensions.xxl),
-
-                  // Timer controls
-                  _buildCupertinoTimerControls(context, state),
-
-                  // Gap
-                  const SizedBox(height: AppDimensions.xxl),
-
-                  // Stats
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -210,6 +141,28 @@ class _TimerScreenState extends State<TimerScreen> {
                       ),
                     ],
                   ),
+
+                  // 2. Current task display or task selection widget
+                  const SizedBox(height: AppDimensions.lg),
+                  _buildTaskSection(state),
+
+                  // 3. Timer display
+                  const SizedBox(height: AppDimensions.lg),
+                  Expanded(
+                    child: Center(
+                      child: TimerDisplay(
+                        timeRemaining: state.timeRemaining,
+                        progress: state.progress,
+                        statusText: statusText,
+                        progressColor: statusColor,
+                      ),
+                    ),
+                  ),
+
+                  // 4. Timer controls at the bottom
+                  const SizedBox(height: AppDimensions.md),
+                  _buildCupertinoTimerControls(context, state),
+                  const SizedBox(height: AppDimensions.xl),
                 ],
               ),
             ),
@@ -248,6 +201,172 @@ class _TimerScreenState extends State<TimerScreen> {
               },
             )
           : null,
+    );
+  }
+
+  // New method to build the task section - either current task or task selector
+  Widget _buildTaskSection(TimerState state) {
+    // Case 1: We have a task ID and loaded task
+    if (state.currentTaskId != null && _taskFuture != null) {
+      return FutureBuilder<Task?>(
+        future: _taskFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasData && snapshot.data != null) {
+            final task = snapshot.data!;
+            return Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppDimensions.md),
+              ),
+              child: InkWell(
+                onTap: _navigateToTaskSelection, // Allow changing the task
+                borderRadius: BorderRadius.circular(AppDimensions.md),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppDimensions.md),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Current Task',
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        task.title,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          // Data is null, show task selection button
+          return _buildTaskSelectionButton();
+        },
+      );
+    }
+
+    // Case 2: No task selected, show task selection button
+    return _buildTaskSelectionButton();
+  }
+
+  // Helper method to build the task selection button
+  Widget _buildTaskSelectionButton() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppDimensions.md),
+      ),
+      child: InkWell(
+        onTap: _navigateToTaskSelection,
+        borderRadius: BorderRadius.circular(AppDimensions.md),
+        child: Padding(
+          padding: const EdgeInsets.all(AppDimensions.md),
+          child: Column(
+            children: [
+              const Icon(Icons.add_task, size: 28),
+              const SizedBox(height: 4),
+              Text(
+                'Select a Task',
+                style: Theme.of(context).textTheme.titleMedium,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawer(BuildContext context) {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'TicTask',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onPrimary,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Focus. Complete. Repeat.',
+                  style: TextStyle(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onPrimary
+                        .withOpacity(0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.timer),
+            title: const Text('Timer'),
+            onTap: () {
+              context.push(Routes.timer);
+              Navigator.pop(context); // Close drawer
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.check_circle_outline),
+            title: const Text('Tasks'),
+            onTap: () {
+              context.push(Routes.tasks);
+              Navigator.pop(context); // Close drawer
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: const Text('Settings'),
+            onTap: () {
+              context.push(Routes.settings);
+              Navigator.pop(context); // Close drawer
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('About'),
+            onTap: () {
+              Navigator.pop(context); // Close drawer
+              // Show about dialog
+              showAboutDialog(
+                context: context,
+                applicationName: 'TicTask',
+                applicationVersion: '1.0.0',
+                applicationLegalese: '© 2023 TicTask',
+                children: [
+                  const SizedBox(height: 16),
+                  const Text(
+                    'A Pomodoro timer app to help you stay focused and productive.',
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -467,14 +586,14 @@ class _TimerScreenState extends State<TimerScreen> {
   ) {
     return Container(
       padding: const EdgeInsets.all(AppDimensions.md),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
-        ),
-      ),
-      child: Column(
+      // decoration: BoxDecoration(
+      //   color: Theme.of(context).colorScheme.surface,
+      //   borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+      //   border: Border.all(
+      //     color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+      //   ),
+      // ),
+      child: Row(
         children: [
           Row(
             children: [
@@ -494,7 +613,7 @@ class _TimerScreenState extends State<TimerScreen> {
               ),
             ],
           ),
-          const SizedBox(height: AppDimensions.xs),
+          const SizedBox(width: AppDimensions.md),
           Text(
             value,
             style: TextStyle(
