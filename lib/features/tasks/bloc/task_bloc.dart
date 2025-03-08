@@ -12,6 +12,7 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
         super(TaskInitial()) {
     on<LoadTasks>(_onLoadTasks);
     on<LoadTasksByDate>(_onLoadTasksByDate);
+    on<LoadTasksInRange>(_onLoadTasksInRange);
     on<AddTask>(_onAddTask);
     on<UpdateTask>(_onUpdateTask);
     on<DeleteTask>(_onDeleteTask);
@@ -45,6 +46,22 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
       emit(TaskLoaded(tasks));
     } catch (e) {
       emit(TaskError('Failed to load tasks for date: $e'));
+    }
+  }
+
+  Future<void> _onLoadTasksInRange(
+    LoadTasksInRange event,
+    Emitter<TaskState> emit,
+  ) async {
+    emit(TaskLoading());
+    try {
+      final tasks = await _taskRepository.getTasksInDateRange(
+        event.startDate,
+        event.endDate,
+      );
+      emit(TaskLoaded(tasks));
+    } catch (e) {
+      emit(TaskError('Failed to load tasks in range: $e'));
     }
   }
 

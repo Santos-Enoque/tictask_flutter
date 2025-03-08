@@ -302,6 +302,10 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
       estimatedPomodoros = int.tryParse(_estimatedPomodorosController.text);
     }
 
+    // First, call onComplete to dismiss the sheet immediately
+    widget.onComplete();
+
+    // Then dispatch the appropriate event after the sheet is dismissed
     if (widget.task == null) {
       // Add new task
       context.read<TaskBloc>().add(
@@ -330,8 +334,5 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
             ),
           );
     }
-
-    // Call onComplete to dismiss the sheet
-    widget.onComplete();
   }
 }

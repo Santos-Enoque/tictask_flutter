@@ -19,6 +19,15 @@ final class LoadTasksByDate extends TaskEvent {
   List<Object?> get props => [date];
 }
 
+final class LoadTasksInRange extends TaskEvent {
+  const LoadTasksInRange(this.startDate, this.endDate);
+  final DateTime startDate;
+  final DateTime endDate;
+
+  @override
+  List<Object?> get props => [startDate, endDate];
+}
+
 final class AddTask extends TaskEvent {
   const AddTask({
     required this.title,

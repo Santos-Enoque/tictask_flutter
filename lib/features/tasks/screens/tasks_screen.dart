@@ -17,12 +17,17 @@ class TasksScreen extends StatefulWidget {
 }
 
 class _TasksScreenState extends State<TasksScreen> {
-  DateTime _selectedDate = DateTime.now();
+  DateTimeRange _dateRange = DateTimeRange(
+    start: DateTime.now().subtract(const Duration(days: 7)),
+    end: DateTime.now().add(const Duration(days: 7)),
+  );
 
   @override
   void initState() {
     super.initState();
-    context.read<TaskBloc>().add(LoadTasksByDate(_selectedDate));
+    context
+        .read<TaskBloc>()
+        .add(LoadTasksInRange(_dateRange.start, _dateRange.end));
   }
 
   @override
@@ -31,15 +36,19 @@ class _TasksScreenState extends State<TasksScreen> {
       title: 'Tasks',
       showBottomNav: widget.showNavBar,
       actions: [
+        // Date Range Picker Button
         IconButton(
-          icon: const Icon(Icons.calendar_today),
-          onPressed: _showIOSDatePicker,
+          icon: const Icon(Icons.date_range),
+          tooltip: 'Select Date Range',
+          onPressed: _showDateRangePicker,
+        ),
+        // Add Task Button
+        IconButton(
+          icon: const Icon(Icons.add),
+          tooltip: 'Add Task',
+          onPressed: _showTaskFormSheet,
         ),
       ],
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showTaskFormSheet,
-        child: const Icon(Icons.add),
-      ),
       child: BlocConsumer<TaskBloc, TaskState>(
         listener: (context, state) {
           if (state is TaskError) {
@@ -47,9 +56,15 @@ class _TasksScreenState extends State<TasksScreen> {
               SnackBar(content: Text(state.message)),
             );
           } else if (state is TaskActionSuccess) {
+            // Show success message
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.message)),
             );
+
+            // Reload tasks for the current date range after any successful action
+            context
+                .read<TaskBloc>()
+                .add(LoadTasksInRange(_dateRange.start, _dateRange.end));
           }
         },
         builder: (context, state) {
@@ -65,21 +80,33 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
-  void _showIOSDatePicker() {
-    showDatePicker(
+  Future<void> _showDateRangePicker() async {
+    final pickedRange = await showDateRangePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDateRange: _dateRange,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
-    ).then((date) {
-      if (date != null) {
-        setState(() {
-          _selectedDate = date;
-        });
-        if (!mounted) return;
-        context.read<TaskBloc>().add(LoadTasksByDate(date));
-      }
-    });
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+                  primary: Theme.of(context).colorScheme.primary,
+                ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (pickedRange != null && pickedRange != _dateRange) {
+      setState(() {
+        _dateRange = pickedRange;
+      });
+      if (!mounted) return;
+      context
+          .read<TaskBloc>()
+          .add(LoadTasksInRange(_dateRange.start, _dateRange.end));
+    }
   }
 
   void _showTaskFormSheet({Task? task}) {
@@ -89,96 +116,167 @@ class _TasksScreenState extends State<TasksScreen> {
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return BlocListener<TaskBloc, TaskState>(
-          listener: (context, state) {
-            if (state is TaskActionSuccess) {
-              Navigator.of(context).pop();
-              context.read<TaskBloc>().add(LoadTasksByDate(_selectedDate));
-            } else if (state is TaskError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.message)),
-              );
+        return TaskFormSheet(
+          task: task,
+          onComplete: () {
+            // This closure will be called when the user taps the Add/Update button
+            // We'll pop the sheet BEFORE dispatching the event to avoid race conditions
+            Navigator.of(context).pop();
+
+            // The TaskBloc events will be dispatched from the TaskFormSheet
+            // After the sheet is closed, it will reload the tasks for the selected date
+            if (task == null) {
+              context
+                  .read<TaskBloc>()
+                  .add(LoadTasksInRange(_dateRange.start, _dateRange.end));
             }
           },
-          child: TaskFormSheet(
-            task: task,
-            onComplete: () {
-              Navigator.of(context).pop();
-            },
-          ),
         );
       },
     );
   }
 
   Widget _buildTaskList(List<Task> tasks) {
-    final dateFormat = DateFormat('EEEE, MMM d, yyyy');
-
     if (tasks.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('No tasks for ${dateFormat.format(_selectedDate)}'),
+            const Text('No tasks found in selected date range'),
             const SizedBox(height: 16),
-            ElevatedButton(
+            ElevatedButton.icon(
+              icon: const Icon(Icons.add),
+              label: const Text('Add Task'),
               style: ElevatedButton.styleFrom(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
               onPressed: _showTaskFormSheet,
-              child: const Text('Add Task'),
             ),
           ],
         ),
       );
     }
 
-    // Group tasks by status
-    final todoTasks =
-        tasks.where((task) => task.status == TaskStatus.todo).toList();
-    final inProgressTasks =
-        tasks.where((task) => task.status == TaskStatus.inProgress).toList();
-    final completedTasks =
-        tasks.where((task) => task.status == TaskStatus.completed).toList();
+    // Group tasks by date
+    final tasksByDate = <DateTime, List<Task>>{};
 
-    return ListView(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            dateFormat.format(_selectedDate),
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-        ),
-        if (inProgressTasks.isNotEmpty) ...[
-          _buildTaskSection('In Progress', inProgressTasks),
-        ],
-        if (todoTasks.isNotEmpty) ...[
-          _buildTaskSection('To Do', todoTasks),
-        ],
-        if (completedTasks.isNotEmpty) ...[
-          _buildTaskSection('Completed', completedTasks),
-        ],
-      ],
+    for (final task in tasks) {
+      final date = DateTime.fromMillisecondsSinceEpoch(task.dueDate);
+      // Remove time part for grouping by date
+      final dateOnly = DateTime(date.year, date.month, date.day);
+
+      if (!tasksByDate.containsKey(dateOnly)) {
+        tasksByDate[dateOnly] = [];
+      }
+      tasksByDate[dateOnly]!.add(task);
+    }
+
+    // Sort dates
+    final sortedDates = tasksByDate.keys.toList()..sort();
+
+    return ListView.builder(
+      itemCount: sortedDates.length,
+      itemBuilder: (context, index) {
+        final date = sortedDates[index];
+        final tasksForDate = tasksByDate[date]!;
+
+        // Group tasks by status
+        final todoTasks =
+            tasksForDate.where((t) => t.status == TaskStatus.todo).toList();
+        final inProgressTasks = tasksForDate
+            .where((t) => t.status == TaskStatus.inProgress)
+            .toList();
+        final completedTasks = tasksForDate
+            .where((t) => t.status == TaskStatus.completed)
+            .toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Date header
+            Container(
+              padding: const EdgeInsets.all(16),
+              color: Theme.of(context)
+                  .colorScheme
+                  .surfaceContainerHighest
+                  .withOpacity(0.3),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    DateFormat('EEEE, MMM d, yyyy').format(date),
+                    style: Theme.of(context).textTheme.titleMedium!.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  Text(
+                    '${tasksForDate.length} task${tasksForDate.length == 1 ? '' : 's'}',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+
+            // Tasks by status
+            if (inProgressTasks.isNotEmpty)
+              _buildTaskStatusSection('In Progress', inProgressTasks),
+            if (todoTasks.isNotEmpty)
+              _buildTaskStatusSection('To Do', todoTasks),
+            if (completedTasks.isNotEmpty)
+              _buildTaskStatusSection('Completed', completedTasks),
+
+            // Add divider between dates
+            const Divider(height: 1),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildTaskSection(String title, List<Task> tasks) {
+  Widget _buildTaskStatusSection(String title, List<Task> tasks) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text(
-            title,
-            style: Theme.of(context).textTheme.titleMedium,
+          child: Row(
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: _getStatusColor(title),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: _getStatusColor(title),
+                    ),
+              ),
+            ],
           ),
         ),
         ...tasks.map(_buildTaskItem),
-        const Divider(),
       ],
     );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'In Progress':
+        return Colors.blue;
+      case 'To Do':
+        return Colors.orange;
+      case 'Completed':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
   }
 
   Widget _buildTaskItem(Task task) {
@@ -225,86 +323,110 @@ class _TasksScreenState extends State<TasksScreen> {
       },
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        child: ListTile(
-          title: Text(
-            task.title,
-            style: TextStyle(
-              decoration: task.status == TaskStatus.completed
-                  ? TextDecoration.lineThrough
-                  : null,
-            ),
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (task.description != null && task.description!.isNotEmpty)
-                Text(
-                  task.description!,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        elevation: 0,
+        child: Row(
+          children: [
+            // Checkbox for completion
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Checkbox(
+                value: task.status == TaskStatus.completed,
+                activeColor: _getStatusColor('Completed'),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(3),
                 ),
-              Row(
-                children: [
-                  Icon(
-                    Icons.access_time,
-                    size: 16,
-                    color: Theme.of(context).hintColor,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(dateFormat.format(dueDate)),
-                  if (task.estimatedPomodoros != null) ...[
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.timer,
-                      size: 16,
-                      color: Theme.of(context).hintColor,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${task.pomodorosCompleted}/${task.estimatedPomodoros}',
-                    ),
-                  ],
-                  if (task.ongoing) ...[
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.refresh,
-                      size: 16,
-                      color: Theme.of(context).hintColor,
-                    ),
-                  ],
-                ],
+                onChanged: (bool? value) {
+                  if (value == true) {
+                    context.read<TaskBloc>().add(MarkTaskAsCompleted(task.id));
+                  } else {
+                    context.read<TaskBloc>().add(MarkTaskAsInProgress(task.id));
+                  }
+                },
               ),
-            ],
-          ),
-          trailing: _buildStatusButtons(task),
-          onTap: () => _showTaskFormSheet(task: task),
+            ),
+            // Task content
+            Expanded(
+              child: ListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                title: Text(
+                  task.title,
+                  style: TextStyle(
+                    decoration: task.status == TaskStatus.completed
+                        ? TextDecoration.lineThrough
+                        : null,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (task.description != null &&
+                        task.description!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4, bottom: 8),
+                        child: Text(
+                          task.description!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.access_time,
+                          size: 16,
+                          color: Theme.of(context).hintColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(dateFormat.format(dueDate)),
+                        if (task.estimatedPomodoros != null) ...[
+                          const SizedBox(width: 12),
+                          Icon(
+                            Icons.timer,
+                            size: 16,
+                            color: Theme.of(context).hintColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${task.pomodorosCompleted}/${task.estimatedPomodoros}',
+                          ),
+                        ],
+                        if (task.ongoing) ...[
+                          const SizedBox(width: 12),
+                          Icon(
+                            Icons.refresh,
+                            size: 16,
+                            color: Theme.of(context).hintColor,
+                          ),
+                          const SizedBox(width: 4),
+                          const Text('Ongoing'),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+                trailing: task.status != TaskStatus.completed
+                    ? IconButton(
+                        icon: const Icon(Icons.play_circle),
+                        tooltip: 'Start Pomodoro',
+                        onPressed: () {
+                          context
+                              .read<TaskBloc>()
+                              .add(MarkTaskAsInProgress(task.id));
+                          // TODO: Navigate to timer with this task selected
+                        },
+                      )
+                    : null,
+                onTap: () => _showTaskFormSheet(task: task),
+              ),
+            ),
+          ],
         ),
       ),
     );
-  }
-
-  Widget _buildStatusButtons(Task task) {
-    if (task.status == TaskStatus.completed) {
-      return IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () {
-          context.read<TaskBloc>().add(MarkTaskAsInProgress(task.id));
-        },
-      );
-    } else if (task.status == TaskStatus.inProgress) {
-      return IconButton(
-        icon: const Icon(Icons.check_circle),
-        onPressed: () {
-          context.read<TaskBloc>().add(MarkTaskAsCompleted(task.id));
-        },
-      );
-    } else {
-      return IconButton(
-        icon: const Icon(Icons.play_circle),
-        onPressed: () {
-          context.read<TaskBloc>().add(MarkTaskAsInProgress(task.id));
-        },
-      );
-    }
   }
 }

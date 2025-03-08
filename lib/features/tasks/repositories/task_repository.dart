@@ -54,6 +54,24 @@ class TaskRepository {
     }).toList();
   }
 
+  Future<List<Task>> getTasksInDateRange(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    // Convert to start of day for startDate and end of day for endDate
+    final rangeStart = DateTime(startDate.year, startDate.month, startDate.day)
+        .millisecondsSinceEpoch;
+    final rangeEnd =
+        DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59)
+            .millisecondsSinceEpoch;
+
+    return _tasksBox.values.where((task) {
+      // Include ongoing tasks or tasks with due date within the range
+      return task.ongoing ||
+          (task.dueDate >= rangeStart && task.dueDate <= rangeEnd);
+    }).toList();
+  }
+
   Future<Task?> getTaskById(String id) async {
     return _tasksBox.get(id);
   }
