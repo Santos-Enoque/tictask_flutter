@@ -7,6 +7,7 @@ import 'package:tictask/features/projects/repositories/project_repository.dart';
 import 'package:tictask/features/tasks/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
 import 'package:tictask/features/tasks/repositories/task_repository.dart';
+import 'package:tictask/features/tasks/widgets/date_scroll_picker.dart';
 import 'package:tictask/features/tasks/widgets/task_form_sheet.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -33,6 +34,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   // Add this property to the _CalendarScreenState class
   List<Task> _tasks = [];
+
+  // Selected date for the calendar
+  DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
@@ -87,10 +91,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
 
     try {
-      // Get tasks for the next 30 days
-      final now = DateTime.now();
-      final endDate = now.add(const Duration(days: 30));
-      final tasks = await _taskRepository.getTasksInDateRange(now, endDate);
+      // Get tasks for a range around the selected date
+      final startDate = _selectedDate.subtract(const Duration(days: 15));
+      final endDate = _selectedDate.add(const Duration(days: 45));
+      final tasks =
+          await _taskRepository.getTasksInDateRange(startDate, endDate);
 
       print('Loaded ${tasks.length} tasks');
       for (final task in tasks) {
@@ -185,6 +190,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
               setState(() {
                 _calendarView = view;
                 _calendarController.view = view;
+
+                // When switching to day view, ensure the calendar shows the selected date
+                if (view == CalendarView.day) {
+                  _calendarController.displayDate = _selectedDate;
+                }
               });
             },
             itemBuilder: (BuildContext context) =>
@@ -205,28 +215,49 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SfCalendar(
-              controller: _calendarController,
-              view: _calendarView,
-              firstDayOfWeek: 1, // Monday
-              dataSource: _getCalendarDataSource(),
-              monthViewSettings: const MonthViewSettings(
-                showAgenda: true,
-                agendaViewHeight: 200,
-              ),
-              timeSlotViewSettings: const TimeSlotViewSettings(
-                timeFormat: 'h:mm a',
-                timeIntervalHeight: 60,
-                timeTextStyle: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 12,
-                ),
-              ),
-              appointmentBuilder: _buildAppointment,
-              onTap: _handleCalendarTap, // Add this line to handle taps
+      body: Column(
+        children: [
+          // Show date picker only for day view
+          if (_calendarView == CalendarView.day)
+            DateScrollPicker(
+              selectedDate: _selectedDate,
+              onDateSelected: (date) {
+                setState(() {
+                  _selectedDate = date;
+                  // Update the calendar's display date
+                  _calendarController.displayDate = date;
+                });
+                _loadTasks(); // Reload tasks for the new date
+              },
             ),
+
+          // Calendar view
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : SfCalendar(
+                    controller: _calendarController,
+                    view: _calendarView,
+                    firstDayOfWeek: 1, // Monday
+                    dataSource: _getCalendarDataSource(),
+                    monthViewSettings: const MonthViewSettings(
+                      showAgenda: true,
+                      agendaViewHeight: 200,
+                    ),
+                    timeSlotViewSettings: const TimeSlotViewSettings(
+                      timeFormat: 'h:mm a',
+                      timeIntervalHeight: 60,
+                      timeTextStyle: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                      ),
+                    ),
+                    appointmentBuilder: _buildAppointment,
+                    onTap: _handleCalendarTap, // Add this line to handle taps
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -239,6 +270,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
     } else if (details.targetElement == CalendarElement.calendarCell) {
       // User tapped on an empty cell or time slot
       final date = details.date!;
+
+      // Update the selected date to match the tapped date
+      setState(() {
+        _selectedDate = DateTime(date.year, date.month, date.day);
+      });
 
       // Only show the task form in day and week views
       if (_calendarView == CalendarView.day ||
