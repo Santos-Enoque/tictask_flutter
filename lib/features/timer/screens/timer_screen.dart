@@ -14,7 +14,9 @@ import 'package:tictask/features/tasks/models/task.dart';
 import 'package:tictask/features/tasks/repositories/task_repository.dart';
 import 'package:tictask/features/timer/bloc/timer_bloc.dart';
 import 'package:tictask/features/timer/models/models.dart';
+import 'package:tictask/features/timer/repositories/timer_repository.dart';
 import 'package:tictask/features/timer/widgets/widgets.dart';
+import 'package:tictask/injection_container.dart';
 
 class TimerScreen extends StatefulWidget {
   const TimerScreen({
@@ -58,6 +60,13 @@ class _TimerScreenState extends State<TimerScreen> {
   void initState() {
     super.initState();
     _taskRepository = context.read<TaskRepository>();
+
+    // Load the latest timer configuration
+    final timerRepository = sl<TimerRepository>();
+    timerRepository.getTimerConfig().then((config) {
+      // Update the timer bloc with the latest configuration
+      context.read<TimerBloc>().add(TimerConfigChanged(config: config));
+    });
 
     // Initialize the timer
     context.read<TimerBloc>().add(const TimerInitialized());
@@ -507,7 +516,8 @@ class _TimerScreenState extends State<TimerScreen> {
 
                       // Then show all other projects
                       ...otherProjects.map(
-                          (project) => _buildProjectItem(context, project)),
+                        (project) => _buildProjectItem(context, project),
+                      ),
                     ],
                   );
                 },
@@ -520,8 +530,11 @@ class _TimerScreenState extends State<TimerScreen> {
   }
 
   // New helper method to build project items with popup menu
-  Widget _buildProjectItem(BuildContext context, Project project,
-      {bool isInbox = false}) {
+  Widget _buildProjectItem(
+    BuildContext context,
+    Project project, {
+    bool isInbox = false,
+  }) {
     return ListTile(
       leading: project.emoji != null && project.emoji!.isNotEmpty
           ? Text(project.emoji!, style: const TextStyle(fontSize: 24))
@@ -614,7 +627,8 @@ class _TimerScreenState extends State<TimerScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Delete Project'),
         content: Text(
-            'Are you sure you want to delete "${project.name}"? This cannot be undone.'),
+          'Are you sure you want to delete "${project.name}"? This cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -723,38 +737,29 @@ class _TimerScreenState extends State<TimerScreen> {
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-              ),
+            FloatingActionButton(
+              heroTag: 'take_break',
+              backgroundColor: secondaryColor,
               onPressed: () =>
                   context.read<TimerBloc>().add(const TimerBreakStarted()),
-              icon: const Icon(Icons.coffee),
-              label: const Text(
-                'Take a Break',
-                style: TextStyle(fontWeight: FontWeight.w600),
+              tooltip: 'Take a Break',
+              child: const Icon(
+                Icons.coffee,
+                size: 30,
+                color: Colors.white,
               ),
             ),
-            const SizedBox(width: 16),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                backgroundColor: secondaryColor,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-              ),
+            const SizedBox(width: 20),
+            FloatingActionButton(
+              heroTag: 'continue_focus',
+              backgroundColor: primaryColor,
               onPressed: () =>
                   context.read<TimerBloc>().add(const TimerStarted()),
-              icon: const Icon(Icons.play_arrow),
-              label: const Text(
-                'Continue Focus',
-                style: TextStyle(fontWeight: FontWeight.w600),
+              tooltip: 'Skip Break & Continue Focus',
+              child: const Icon(
+                Icons.skip_next,
+                size: 30,
+                color: Colors.white,
               ),
             ),
           ],
@@ -764,38 +769,29 @@ class _TimerScreenState extends State<TimerScreen> {
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-              ),
+            FloatingActionButton(
+              heroTag: 'start_focus',
+              backgroundColor: primaryColor,
               onPressed: () =>
                   context.read<TimerBloc>().add(const TimerBreakSkipped()),
-              icon: const Icon(Icons.work),
-              label: const Text(
-                'Start Focus',
-                style: TextStyle(fontWeight: FontWeight.w600),
+              tooltip: 'Start Focus',
+              child: const Icon(
+                Icons.work,
+                size: 30,
+                color: Colors.white,
               ),
             ),
-            const SizedBox(width: 16),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                backgroundColor: secondaryColor,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-              ),
+            const SizedBox(width: 20),
+            FloatingActionButton(
+              heroTag: 'more_break',
+              backgroundColor: secondaryColor,
               onPressed: () =>
                   context.read<TimerBloc>().add(const TimerBreakStarted()),
-              icon: const Icon(Icons.coffee),
-              label: const Text(
-                'More Break Time',
-                style: TextStyle(fontWeight: FontWeight.w600),
+              tooltip: 'More Break Time',
+              child: const Icon(
+                Icons.coffee,
+                size: 30,
+                color: Colors.white,
               ),
             ),
           ],
@@ -803,14 +799,16 @@ class _TimerScreenState extends State<TimerScreen> {
       }
     }
 
-    // For break running or any other state, show appropriate controls
+    // For break running state, show pause and skip to focus buttons
     if (state.status == TimerUIStatus.breakRunning) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           FloatingActionButton(
+            heroTag: 'pause_break',
             backgroundColor: secondaryColor,
             onPressed: () => context.read<TimerBloc>().add(const TimerPaused()),
+            tooltip: 'Pause Break',
             child: const Icon(
               Icons.pause,
               size: 30,
@@ -819,10 +817,13 @@ class _TimerScreenState extends State<TimerScreen> {
           ),
           const SizedBox(width: 20),
           FloatingActionButton(
-            backgroundColor: Colors.red,
-            onPressed: () => context.read<TimerBloc>().add(const TimerReset()),
+            heroTag: 'skip_to_focus',
+            backgroundColor: primaryColor,
+            onPressed: () =>
+                context.read<TimerBloc>().add(const TimerBreakSkipped()),
+            tooltip: 'Skip to Focus Session',
             child: const Icon(
-              Icons.refresh,
+              Icons.work,
               size: 30,
               color: Colors.white,
             ),
