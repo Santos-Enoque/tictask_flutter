@@ -5,11 +5,13 @@ import 'package:tictask/app/routes/app_router.dart';
 import 'package:tictask/app/theme/app_theme.dart';
 import 'package:tictask/app/theme/themes/dark_theme.dart';
 import 'package:tictask/app/theme/themes/light_theme.dart';
+import 'package:tictask/features/tasks/bloc/task_bloc.dart';
 import 'package:tictask/features/timer/bloc/timer_bloc.dart';
 import 'package:tictask/injection_container.dart';
+
 /// Main application widget
 class App extends StatelessWidget {
-  const App({Key? key}) : super(key: key);
+  const App({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +25,9 @@ class App extends StatelessWidget {
         ),
         BlocProvider<TimerBloc>(
           create: (_) => sl<TimerBloc>(),
+        ),
+        BlocProvider<TaskBloc>(
+          create: (_) => sl<TaskBloc>(),
         ),
       ],
       child: BlocBuilder<ThemeBloc, ThemeState>(

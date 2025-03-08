@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tictask/app/theme/colors.dart';
+
 ThemeData getDarkTheme() {
   return ThemeData(
     useMaterial3: true,
@@ -134,20 +135,66 @@ ThemeData getDarkTheme() {
           return AppColors.darkDisabled;
         }
         if (states.contains(WidgetState.selected)) {
-          return AppColors.darkPrimary;
+          return AppColors.darkOnPrimary;
         }
         return AppColors.darkSurface;
       }),
       trackColor: WidgetStateProperty.resolveWith<Color>((states) {
         if (states.contains(WidgetState.disabled)) {
-          return AppColors.darkDisabled.withAlpha(77);
+          return AppColors.darkDisabled.withOpacity(0.3);
         }
         if (states.contains(WidgetState.selected)) {
-          return AppColors.darkPrimary.withAlpha(77);
+          return AppColors.darkPrimary;
         }
         return AppColors.darkBorder;
       }),
+      trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
     ),
     textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: AppColors.darkBackground,
+      indicatorColor: Colors.transparent,
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: AppColors.darkPrimary,
+          );
+        }
+        return TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: AppColors.darkOnSurface.withOpacity(0.6),
+        );
+      }),
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return const IconThemeData(
+            color: AppColors.darkPrimary,
+            size: 24,
+          );
+        }
+        return IconThemeData(
+          color: AppColors.darkOnSurface.withOpacity(0.6),
+          size: 24,
+        );
+      }),
+      elevation: 0,
+      height: 60,
+    ),
+    bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      backgroundColor: AppColors.darkBackground,
+      selectedItemColor: AppColors.darkPrimary,
+      unselectedItemColor: AppColors.darkOnSurface.withOpacity(0.6),
+      selectedLabelStyle:
+          const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+      unselectedLabelStyle:
+          const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+      elevation: 0,
+      type: BottomNavigationBarType.fixed,
+      showSelectedLabels: true,
+      showUnselectedLabels: true,
+    ),
   );
 }

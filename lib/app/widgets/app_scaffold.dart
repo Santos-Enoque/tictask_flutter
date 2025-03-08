@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tictask/app/routes/routes.dart';
-import 'package:tictask/app/theme/dimensions.dart';
 
 class AppScaffold extends StatelessWidget {
+  const AppScaffold({
+    required this.child,
+    super.key,
+    this.title,
+    this.actions,
+    this.showBottomNav = true,
+    this.floatingActionButton,
+  });
   final Widget child;
   final String? title;
   final List<Widget>? actions;
   final bool showBottomNav;
-
-  const AppScaffold({
-    Key? key,
-    required this.child,
-    this.title,
-    this.actions,
-    this.showBottomNav = true,
-  }) : super(key: key);
+  final Widget? floatingActionButton;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +29,7 @@ class AppScaffold extends StatelessWidget {
       body: SafeArea(
         child: child,
       ),
+      floatingActionButton: floatingActionButton,
       bottomNavigationBar: showBottomNav
           ? NavigationBar(
               onDestinationSelected: (index) {
@@ -36,16 +37,12 @@ class AppScaffold extends StatelessWidget {
                 switch (index) {
                   case 0:
                     context.go(Routes.timer);
-                    break;
                   case 1:
                     context.go(Routes.tasks);
-                    break;
                   case 2:
                     context.go(Routes.stats);
-                    break;
                   case 3:
                     context.go(Routes.settings);
-                    break;
                 }
               },
               selectedIndex: _calculateSelectedIndex(context),
@@ -77,8 +74,8 @@ class AppScaffold extends StatelessWidget {
   }
 
   int _calculateSelectedIndex(BuildContext context) {
-    final String location = GoRouterState.of(context).uri.path;
-    
+    final location = GoRouterState.of(context).uri.path;
+
     if (location.startsWith(Routes.timer)) {
       return 0;
     }

@@ -8,18 +8,26 @@ class TaskRepository {
 
   // Initialize repository
   Future<void> init() async {
-    // Register enum adapter
-    if (!Hive.isAdapterRegistered(7)) {
-      Hive.registerAdapter(TaskStatusAdapter());
-    }
+    try {
+      // Register enum adapter
+      if (!Hive.isAdapterRegistered(7)) {
+        Hive.registerAdapter(TaskStatusAdapter());
+      }
 
-    // Register class adapters
-    if (!Hive.isAdapterRegistered(4)) {
-      Hive.registerAdapter(TaskAdapter());
-    }
+      // Register class adapters
+      if (!Hive.isAdapterRegistered(10)) {
+        Hive.registerAdapter(TaskAdapter());
+      }
 
-    // Open box
-    _tasksBox = await Hive.openBox<Task>(AppConstants.tasksBox);
+      // Open box
+      _tasksBox = await Hive.openBox<Task>(AppConstants.tasksBox);
+
+      print('TaskRepository initialized successfully');
+    } catch (e) {
+      print('Error initializing TaskRepository: $e');
+      // Create an empty box as fallback
+      _tasksBox = await Hive.openBox<Task>(AppConstants.tasksBox);
+    }
   }
 
   // Task CRUD operations

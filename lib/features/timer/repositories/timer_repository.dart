@@ -12,40 +12,76 @@ class TimerRepository {
 
   // Initialize repository
   Future<void> init() async {
-    // Register enum adapters
-    if (!Hive.isAdapterRegistered(4)) {
-      Hive.registerAdapter(TimerStatusAdapter());
-    }
-    if (!Hive.isAdapterRegistered(5)) {
-      Hive.registerAdapter(TimerModeAdapter());
-    }
-    if (!Hive.isAdapterRegistered(6)) {
-      Hive.registerAdapter(SessionTypeAdapter());
-    }
+    try {
+      // Register enum adapters
+      if (!Hive.isAdapterRegistered(4)) {
+        Hive.registerAdapter(TimerStatusAdapter());
+      }
+      if (!Hive.isAdapterRegistered(5)) {
+        Hive.registerAdapter(TimerModeAdapter());
+      }
+      if (!Hive.isAdapterRegistered(6)) {
+        Hive.registerAdapter(SessionTypeAdapter());
+      }
 
-    // Register class adapters
-    if (!Hive.isAdapterRegistered(1)) {
-      Hive.registerAdapter(TimerConfigAdapter());
-    }
-    if (!Hive.isAdapterRegistered(2)) {
-      Hive.registerAdapter(TimerSessionAdapter());
-    }
-    if (!Hive.isAdapterRegistered(3)) {
-      Hive.registerAdapter(TimerStateModelAdapter());
-    }
+      // Register class adapters
+      if (!Hive.isAdapterRegistered(1)) {
+        Hive.registerAdapter(TimerConfigAdapter());
+      }
+      if (!Hive.isAdapterRegistered(2)) {
+        Hive.registerAdapter(TimerSessionAdapter());
+      }
+      if (!Hive.isAdapterRegistered(3)) {
+        Hive.registerAdapter(TimerStateModelAdapter());
+      }
 
-    // Open boxes
-    _configBox = await Hive.openBox<TimerConfig>(_configBoxName);
-    _stateBox = await Hive.openBox<TimerStateModel>(_stateBoxName);
-    _sessionsBox = await Hive.openBox<TimerSession>(_sessionsBoxName);
+      // Open boxes
+      _configBox = await Hive.openBox<TimerConfig>(_configBoxName);
+      _stateBox = await Hive.openBox<TimerStateModel>(_stateBoxName);
+      _sessionsBox = await Hive.openBox<TimerSession>(_sessionsBoxName);
 
-    // Initialize with default values if empty
-    if (_configBox.isEmpty) {
-      await _configBox.put('default', TimerConfig.defaultConfig);
-    }
+      // Initialize with default values if empty
+      if (_configBox.isEmpty) {
+        await _configBox.put('default', TimerConfig.defaultConfig);
+      }
 
-    if (_stateBox.isEmpty) {
-      await _stateBox.put('default', TimerStateModel.defaultState);
+      if (_stateBox.isEmpty) {
+        await _stateBox.put('default', TimerStateModel.defaultState);
+      }
+
+      print('TimerRepository initialized successfully');
+    } catch (e) {
+      print('Error initializing TimerRepository: $e');
+
+      // Try to recover by creating default instances
+      try {
+        // If boxes weren't opened, try to open them
+        if (!Hive.isBoxOpen(_configBoxName)) {
+          _configBox = await Hive.openBox<TimerConfig>(_configBoxName);
+        }
+        if (!Hive.isBoxOpen(_stateBoxName)) {
+          _stateBox = await Hive.openBox<TimerStateModel>(_stateBoxName);
+        }
+        if (!Hive.isBoxOpen(_sessionsBoxName)) {
+          _sessionsBox = await Hive.openBox<TimerSession>(_sessionsBoxName);
+        }
+
+        // Initialize with default values
+        if (_configBox.isEmpty) {
+          await _configBox.put('default', TimerConfig.defaultConfig);
+        }
+        if (_stateBox.isEmpty) {
+          await _stateBox.put('default', TimerStateModel.defaultState);
+        }
+
+        print('TimerRepository recovered from error');
+      } catch (recoveryError) {
+        print('Failed to recover TimerRepository: $recoveryError');
+        // Create empty boxes as a last resort
+        _configBox = await Hive.openBox<TimerConfig>(_configBoxName);
+        _stateBox = await Hive.openBox<TimerStateModel>(_stateBoxName);
+        _sessionsBox = await Hive.openBox<TimerSession>(_sessionsBoxName);
+      }
     }
   }
 

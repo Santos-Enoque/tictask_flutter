@@ -55,7 +55,7 @@ Future<void> _initializeHive() async {
     // Initialize Hive for Flutter (this works for all platforms including web)
     await Hive.initFlutter();
 
-    // Register adapters
+    // Register adapters for enums
     // Note: The actual adapter registrations will be done in the repository
     //       to avoid circular dependencies
 

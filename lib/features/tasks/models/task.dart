@@ -5,8 +5,44 @@ import 'package:uuid/uuid.dart';
 
 part 'task.g.dart';
 
-@HiveType(typeId: 4)
+@HiveType(typeId: 10)
 class Task extends Equatable {
+  const Task({
+    required this.id,
+    required this.title,
+    required this.status,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.pomodorosCompleted,
+    required this.dueDate,
+    required this.ongoing,
+    this.description,
+    this.completedAt,
+    this.estimatedPomodoros,
+  });
+
+  // Factory method to create a new task
+  factory Task.create({
+    required String title,
+    required int dueDate,
+    String? description,
+    int? estimatedPomodoros,
+    bool ongoing = false,
+  }) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return Task(
+      id: const Uuid().v4(),
+      title: title,
+      description: description,
+      status: TaskStatus.todo,
+      createdAt: now,
+      updatedAt: now,
+      pomodorosCompleted: 0,
+      estimatedPomodoros: estimatedPomodoros,
+      dueDate: dueDate,
+      ongoing: ongoing,
+    );
+  }
   @HiveField(0)
   final String id;
 
@@ -39,43 +75,6 @@ class Task extends Equatable {
 
   @HiveField(10)
   final bool ongoing;
-
-  const Task({
-    required this.id,
-    required this.title,
-    this.description,
-    required this.status,
-    required this.createdAt,
-    required this.updatedAt,
-    this.completedAt,
-    required this.pomodorosCompleted,
-    this.estimatedPomodoros,
-    required this.dueDate,
-    required this.ongoing,
-  });
-
-  // Factory method to create a new task
-  factory Task.create({
-    required String title,
-    String? description,
-    int? estimatedPomodoros,
-    required int dueDate,
-    bool ongoing = false,
-  }) {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    return Task(
-      id: const Uuid().v4(),
-      title: title,
-      description: description,
-      status: TaskStatus.todo,
-      createdAt: now,
-      updatedAt: now,
-      pomodorosCompleted: 0,
-      estimatedPomodoros: estimatedPomodoros,
-      dueDate: dueDate,
-      ongoing: ongoing,
-    );
-  }
 
   // Create a copy with updated fields
   Task copyWith({
