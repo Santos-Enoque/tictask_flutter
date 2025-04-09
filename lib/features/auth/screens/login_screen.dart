@@ -19,31 +19,31 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  
+
   bool _isLoading = false;
   bool _isLogin = true; // Toggle between login and register
   String? _errorMessage;
-  
+
   final AuthService _authService = GetIt.I<AuthService>();
-  
+
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _handleAuth() async {
     // Validate form
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-    
+
     try {
       if (_isLogin) {
         // Login
@@ -58,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
           password: _passwordController.text.trim(),
         );
       }
-      
+
       // Call success callback
       widget.onLoginSuccess();
     } on AuthException catch (e) {
@@ -78,7 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
   }
-  
+
   Future<void> _handleMagicLink() async {
     // Validate email
     if (_emailController.text.isEmpty) {
@@ -87,17 +87,17 @@ class _LoginScreenState extends State<LoginScreen> {
       });
       return;
     }
-    
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-    
+
     try {
       await _authService.signInWithMagicLink(
         email: _emailController.text.trim(),
       );
-      
+
       // Show confirmation dialog
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -120,16 +120,16 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
   }
-  
+
   Future<void> _handleAnonymousLogin() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-    
+
     try {
       await _authService.signInAnonymously();
-      
+
       // Call success callback
       widget.onLoginSuccess();
     } catch (e) {
@@ -149,179 +149,226 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
+    // Get screen size to make responsive decisions
+    final screenSize = MediaQuery.of(context).size;
+
+    // Calculate the appropriate width for form fields
+    // For larger screens, use a fixed width, for smaller screens use percentage
+    final formWidth = screenSize.width > 600 ? 450.0 : screenSize.width * 0.9;
+
     return Scaffold(
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppDimensions.xl),
             child: Form(
               key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // App logo/title
-                  Icon(
-                    Icons.timer,
-                    size: 80,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: AppDimensions.md),
-                  Text(
-                    'TicTask',
-                    style: AppTextStyles.displaySmall(context),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: AppDimensions.lg),
-                  
-                  // Login/Register form
-                  Text(
-                    _isLogin ? 'Sign In' : 'Create Account',
-                    style: AppTextStyles.headlineSmall(context),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: AppDimensions.lg),
-                  
-                  // Error message if any
-                  if (_errorMessage != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(AppDimensions.md),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.errorContainer,
-                        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-                      ),
-                      child: Text(
-                        _errorMessage!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onErrorContainer,
-                        ),
-                        textAlign: TextAlign.center,
+              child: Container(
+                width: formWidth,
+                padding: const EdgeInsets.all(AppDimensions.xl),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // App logo/title
+                    Center(
+                      child: Icon(
+                        Icons.timer,
+                        size: 80,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
                     const SizedBox(height: AppDimensions.md),
-                  ],
-                  
-                  // Email field
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      hintText: 'Enter your email',
-                      prefixIcon: Icon(Icons.email),
+                    Text(
+                      'TicTask',
+                      style: AppTextStyles.displaySmall(context),
+                      textAlign: TextAlign.center,
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
-                      }
-                      if (!value.contains('@') || !value.contains('.')) {
-                        return 'Please enter a valid email';
-                      }
-                      return null;
-                    },
-                    enabled: !_isLoading,
-                  ),
-                  const SizedBox(height: AppDimensions.md),
-                  
-                  // Password field - only shown for login/register, not for magic link
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                      hintText: 'Enter your password',
-                      prefixIcon: Icon(Icons.lock),
+                    const SizedBox(height: AppDimensions.xl),
+
+                    // Login/Register form
+                    Text(
+                      _isLogin ? 'Sign In' : 'Create Account',
+                      style: AppTextStyles.headlineSmall(context),
+                      textAlign: TextAlign.center,
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
-                      }
-                      if (!_isLogin && value.length < 6) {
-                        return 'Password must be at least 6 characters';
-                      }
-                      return null;
-                    },
-                    enabled: !_isLoading,
-                  ),
-                  const SizedBox(height: AppDimensions.xl),
-                  
-                  // Login/Register button
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _handleAuth,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: AppDimensions.md),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+                    const SizedBox(height: AppDimensions.lg),
+
+                    // Error message if any
+                    if (_errorMessage != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(AppDimensions.md),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.errorContainer,
+                          borderRadius:
+                              BorderRadius.circular(AppDimensions.radiusMd),
+                        ),
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onErrorContainer,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
+                      const SizedBox(height: AppDimensions.md),
+                    ],
+
+                    // Email field
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        hintText: 'Enter your email',
+                        prefixIcon: const Icon(Icons.email),
+                        border: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppDimensions.radiusMd),
+                        ),
+                        filled: true,
+                        fillColor: isDarkMode
+                            ? AppColors.darkSurface
+                            : AppColors.lightSurface,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your email';
+                        }
+                        if (!value.contains('@') || !value.contains('.')) {
+                          return 'Please enter a valid email';
+                        }
+                        return null;
+                      },
+                      enabled: !_isLoading,
                     ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                    const SizedBox(height: AppDimensions.md),
+
+                    // Password field - only shown for login/register, not for magic link
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        hintText: 'Enter your password',
+                        prefixIcon: const Icon(Icons.lock),
+                        border: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppDimensions.radiusMd),
+                        ),
+                        filled: true,
+                        fillColor: isDarkMode
+                            ? AppColors.darkSurface
+                            : AppColors.lightSurface,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your password';
+                        }
+                        if (!_isLogin && value.length < 6) {
+                          return 'Password must be at least 6 characters';
+                        }
+                        return null;
+                      },
+                      enabled: !_isLoading,
+                    ),
+                    const SizedBox(height: AppDimensions.xl),
+
+                    // Login/Register button
+                    ElevatedButton(
+                      onPressed: _isLoading ? null : _handleAuth,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onPrimary,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: AppDimensions.md),
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppDimensions.radiusMd),
+                        ),
+                        minimumSize: const Size(double.infinity, 50),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              _isLogin ? 'Sign In' : 'Create Account',
+                              style: const TextStyle(fontSize: 16),
                             ),
-                          )
-                        : Text(_isLogin ? 'Sign In' : 'Create Account'),
-                  ),
-                  const SizedBox(height: AppDimensions.md),
-                  
-                  // Magic link option
-                  TextButton.icon(
-                    onPressed: _isLoading ? null : _handleMagicLink,
-                    icon: const Icon(Icons.link),
-                    label: const Text('Sign in with Magic Link'),
-                  ),
-                  
-                  // Toggle between login and register
-                  TextButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () {
-                            setState(() {
-                              _isLogin = !_isLogin;
-                              _errorMessage = null;
-                            });
-                          },
-                    child: Text(
-                      _isLogin
-                          ? 'Need an account? Register'
-                          : 'Have an account? Sign In',
                     ),
-                  ),
-                  
-                  const SizedBox(height: AppDimensions.md),
-                  const Divider(),
-                  const SizedBox(height: AppDimensions.md),
-                  
-                  // Anonymous login option
-                  OutlinedButton.icon(
-                    onPressed: _isLoading ? null : _handleAnonymousLogin,
-                    icon: const Icon(Icons.person_outline),
-                    label: const Text('Continue without Account'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: AppDimensions.md),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+                    const SizedBox(height: AppDimensions.md),
+
+                    // Magic link option
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: _isLoading ? null : _handleMagicLink,
+                        icon: const Icon(Icons.link),
+                        label: const Text('Sign in with Magic Link'),
                       ),
                     ),
-                  ),
-                  
-                  // Note about anon accounts
-                  const SizedBox(height: AppDimensions.sm),
-                  Text(
-                    'Anonymous accounts can sync between sessions on the same device but not across devices',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+
+                    // Toggle between login and register
+                    Center(
+                      child: TextButton(
+                        onPressed: _isLoading
+                            ? null
+                            : () {
+                                setState(() {
+                                  _isLogin = !_isLogin;
+                                  _errorMessage = null;
+                                });
+                              },
+                        child: Text(
+                          _isLogin
+                              ? 'Need an account? Register'
+                              : 'Have an account? Sign In',
+                        ),
+                      ),
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+
+                    const SizedBox(height: AppDimensions.md),
+                    const Divider(),
+                    const SizedBox(height: AppDimensions.md),
+
+                    // Anonymous login option
+                    OutlinedButton.icon(
+                      onPressed: _isLoading ? null : _handleAnonymousLogin,
+                      icon: const Icon(Icons.person_outline),
+                      label: const Text('Continue without Account'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: AppDimensions.md),
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppDimensions.radiusMd),
+                        ),
+                        minimumSize: const Size(double.infinity, 50),
+                      ),
+                    ),
+
+                    // Note about anon accounts
+                    const SizedBox(height: AppDimensions.sm),
+                    Text(
+                      'Anonymous accounts can sync between sessions on the same device but not across devices',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.6),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

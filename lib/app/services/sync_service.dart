@@ -4,6 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tictask/app/services/auth_service.dart';
+import 'package:tictask/features/projects/repositories/syncable_project_repository.dart';
+import 'package:tictask/features/tasks/repositories/syncable_task_repository.dart';
+import 'package:tictask/features/timer/repositories/syncable_timer_repository.dart';
+import 'package:tictask/injection_container.dart';
 
 /// Status of synchronization
 enum SyncStatus {
@@ -29,6 +33,11 @@ class SyncService {
   final AuthService _authService;
   final SupabaseClient _supabase = Supabase.instance.client;
   final Connectivity _connectivity = Connectivity();
+
+  // Repositories to sync
+  late final SyncableTaskRepository _taskRepository;
+  late final SyncableProjectRepository _projectRepository;
+  late final SyncableTimerRepository _timerRepository;
 
   // Internal state
   SyncStatus _status = SyncStatus.idle;
@@ -63,6 +72,11 @@ class SyncService {
       _lastSyncTime = DateTime.fromMillisecondsSinceEpoch(lastSyncTimeMillis);
     }
 
+    // Get repositories
+    _taskRepository = sl<SyncableTaskRepository>();
+    _projectRepository = sl<SyncableProjectRepository>();
+    _timerRepository = sl<SyncableTimerRepository>();
+
     // Set up connectivity monitoring
     _connectivitySubscription =
         _connectivity.onConnectivityChanged.listen(_handleConnectivityChange);
@@ -96,9 +110,14 @@ class SyncService {
   }
 
   // Set up background sync timer
-  void _setupBackgroundSync() {
+  void _setupBackgroundSync() async {
     // Only set up if user is authenticated
     if (!_authService.isAuthenticated) return;
+
+    // Only set up if sync is enabled in settings
+    final prefs = await SharedPreferences.getInstance();
+    final syncEnabled = prefs.getBool('sync_enabled') ?? true;
+    if (!syncEnabled) return;
 
     // Cancel existing timer if any
     _cancelBackgroundSync();
@@ -115,6 +134,24 @@ class SyncService {
     _syncTimer = null;
   }
 
+// Add this to your SyncService class
+  Future<bool> verifyDatabaseSchema() async {
+    try {
+      // Check if tables exist
+      final projectsTable =
+          await _supabase.from('projects').select('id').limit(1);
+      final tasksTable = await _supabase.from('tasks').select('id').limit(1);
+      final timerSessionsTable =
+          await _supabase.from('timer_sessions').select('id').limit(1);
+
+      debugPrint('Database validation completed successfully');
+      return true;
+    } catch (e) {
+      debugPrint('Database schema error: $e');
+      return false;
+    }
+  }
+
   // Sync all data
   Future<bool> syncAll() async {
     // Skip if offline or already syncing
@@ -127,6 +164,13 @@ class SyncService {
       return false;
     }
 
+    // Check if sync is enabled in settings
+    final prefs = await SharedPreferences.getInstance();
+    final syncEnabled = prefs.getBool('sync_enabled') ?? true;
+    if (!syncEnabled) {
+      return false;
+    }
+
     _isSyncing = true;
     _status = SyncStatus.syncing;
     _syncStatusController.add(_status);
@@ -135,16 +179,14 @@ class SyncService {
       // Refresh auth session if needed
       await _authService.refreshSessionIfNeeded();
 
-      // Sync data from all repositories
-      // Using a queue approach to avoid concurrency issues
-      await _syncProjects();
-      await _syncTasks();
-      await _syncTimerSessions();
-      await _syncTimerConfigs();
+      // First pull updates from server to get the latest data
+      await _pullChanges();
+
+      // Then push local changes to server
+      await _pushChanges();
 
       // Update last sync time
       _lastSyncTime = DateTime.now();
-      final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(
           'last_sync_time', _lastSyncTime!.millisecondsSinceEpoch);
 
@@ -161,28 +203,46 @@ class SyncService {
     }
   }
 
-  // Sync projects
-  Future<void> _syncProjects() async {
-    // This will be implemented to sync with the project repository
-    // For now we'll leave it as a placeholder
+  // Pull changes from server
+  Future<void> _pullChanges() async {
+    try {
+      // Pull in a specific order to handle dependencies
+      // Projects first, then tasks, then timer sessions
+      await _projectRepository.pullChanges();
+      await _taskRepository.pullChanges();
+      await _timerRepository.pullChanges();
+    } catch (e) {
+      debugPrint('Error pulling changes: $e');
+      throw Exception('Failed to pull changes: $e');
+    }
   }
 
-  // Sync tasks
-  Future<void> _syncTasks() async {
-    // This will be implemented to sync with the task repository
-    // For now we'll leave it as a placeholder
+  // Push changes to server
+// Add call to sync Inbox project in pushChanges method
+  Future<void> _pushChanges() async {
+    try {
+      // First try to sync the Inbox project specifically
+      try {
+        await _projectRepository.syncInboxProject();
+      } catch (e) {
+        debugPrint('Warning: Failed to sync Inbox project: $e');
+        // Continue with other syncs even if Inbox sync fails
+      }
+
+      // Then push changes for other repositories
+      await _projectRepository.pushChanges();
+      await _taskRepository.pushChanges();
+      await _timerRepository.pushChanges();
+    } catch (e) {
+      debugPrint('Error pushing changes: $e');
+      throw Exception('Failed to push changes: $e');
+    }
   }
 
-  // Sync timer sessions
-  Future<void> _syncTimerSessions() async {
-    // This will be implemented to sync with the timer repository
-    // For now we'll leave it as a placeholder
-  }
-
-  // Sync timer configs
-  Future<void> _syncTimerConfigs() async {
-    // This will be implemented to sync with the timer repository
-    // For now we'll leave it as a placeholder
+  // Restart background sync (called when settings change)
+  void restartBackgroundSync() {
+    _cancelBackgroundSync();
+    _setupBackgroundSync();
   }
 
   // Dispose the service

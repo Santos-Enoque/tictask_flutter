@@ -1,5 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tictask/app/services/sync_service.dart';
+import 'package:tictask/injection_container.dart';
 
 /// Service for handling user authentication using Supabase
 /// Works across all platforms including Linux
@@ -25,10 +28,15 @@ class AuthService {
     required String password,
   }) async {
     try {
-      return await _supabase.auth.signInWithPassword(
+      final response = await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
+      
+      // After successful sign-in, trigger data sync
+      await _syncDataAfterAuth();
+      
+      return response;
     } catch (e) {
       debugPrint('Error signing in: $e');
       rethrow;
@@ -41,10 +49,15 @@ class AuthService {
     required String password,
   }) async {
     try {
-      return await _supabase.auth.signUp(
+      final response = await _supabase.auth.signUp(
         email: email,
         password: password,
       );
+      
+      // After account creation, sync local data to the server
+      await _syncDataAfterAuth();
+      
+      return response;
     } catch (e) {
       debugPrint('Error creating user: $e');
       rethrow;
@@ -54,6 +67,19 @@ class AuthService {
   // Sign out
   Future<void> signOut() async {
     try {
+      // Try to sync one last time before signing out
+      final syncService = sl<SyncService>();
+      final syncEnabled = await _getSyncEnabled();
+      
+      if (syncEnabled) {
+        try {
+          await syncService.syncAll();
+        } catch (e) {
+          // If sync fails, continue with sign out
+          debugPrint('Error syncing during sign out: $e');
+        }
+      }
+      
       await _supabase.auth.signOut();
     } catch (e) {
       debugPrint('Error signing out: $e');
@@ -88,6 +114,9 @@ class AuthService {
         email: email,
         emailRedirectTo: redirectTo,
       );
+      
+      // Note: The sync will happen after the user clicks the magic link
+      // and the auth state changes, triggering the auth state listener
     } catch (e) {
       debugPrint('Error sending magic link: $e');
       rethrow;
@@ -101,6 +130,9 @@ class AuthService {
         email: 'anonymous@tictask.app',
         password: 'anonymous',
       );
+      
+      // Anonymous users can sync to their device
+      await _syncDataAfterAuth();
     } catch (e) {
       debugPrint('Error signing in anonymously: $e');
       rethrow;
@@ -157,6 +189,49 @@ class AuthService {
       }
     } catch (e) {
       debugPrint('Error refreshing session: $e');
+    }
+  }
+  
+  // Add listeners for auth state changes
+  void setupAuthStateListener() {
+    _supabase.auth.onAuthStateChange.listen((data) {
+      final AuthChangeEvent event = data.event;
+      
+      // When user signs in or token refreshes, sync data
+      if (event == AuthChangeEvent.signedIn || 
+          event == AuthChangeEvent.tokenRefreshed) {
+        _syncDataAfterAuth();
+      }
+    });
+  }
+  
+  // Sync data after authentication
+  Future<void> _syncDataAfterAuth() async {
+    try {
+      // Check if sync is enabled in settings
+      final syncEnabled = await _getSyncEnabled();
+      if (!syncEnabled) return;
+      
+      // Get the sync service
+      final syncService = sl<SyncService>();
+      
+      // Sync data
+      await syncService.syncAll();
+      
+      debugPrint('Data synced after authentication');
+    } catch (e) {
+      debugPrint('Error syncing data after auth: $e');
+    }
+  }
+  
+  // Get sync enabled setting
+  Future<bool> _getSyncEnabled() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool('sync_enabled') ?? true;
+    } catch (e) {
+      // Default to enabled if there's an error
+      return true;
     }
   }
 }

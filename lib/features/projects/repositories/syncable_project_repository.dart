@@ -3,16 +3,15 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tictask/app/constants/app_constants.dart';
-import 'package:tictask/app/constants/enums.dart';
-import 'package:tictask/features/tasks/models/task.dart';
+import 'package:tictask/features/projects/models/project.dart';
 import 'package:tictask/app/services/auth_service.dart';
 import 'package:tictask/app/repositories/syncable_repository.dart';
-import 'package:tictask/features/tasks/repositories/task_repository.dart';
+import 'package:tictask/features/projects/repositories/project_repository.dart';
 
-class SyncableTaskRepository extends TaskRepository
-    implements SyncableRepository<Task> {
+class SyncableProjectRepository extends ProjectRepository
+    implements SyncableRepository<Project> {
   // Local storage
-  late Box<Task> _tasksBox;
+  late Box<Project> _projectsBox;
 
   // Remote storage client
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -26,35 +25,42 @@ class SyncableTaskRepository extends TaskRepository
   final ValueNotifier<String?> _lastSyncError = ValueNotifier<String?>(null);
 
   // Table name in Supabase
-  static const String _tableName = 'tasks';
+  static const String _tableName = 'projects';
 
   // Sync metadata key prefix
-  static const String _lastSyncTimeKey = 'tasks_last_sync_time';
+  static const String _lastSyncTimeKey = 'projects_last_sync_time';
 
   // Constructor
-  SyncableTaskRepository(this._authService);
+  SyncableProjectRepository(this._authService);
 
   // Initialize repository
+  @override
   Future<void> init() async {
     try {
-      // Register enum adapter
-      if (!Hive.isAdapterRegistered(7)) {
-        Hive.registerAdapter(TaskStatusAdapter());
-      }
-
       // Register class adapters
-      if (!Hive.isAdapterRegistered(10)) {
-        Hive.registerAdapter(TaskAdapter());
+      if (!Hive.isAdapterRegistered(11)) {
+        Hive.registerAdapter(ProjectAdapter());
       }
 
       // Open box
-      _tasksBox = await Hive.openBox<Task>(AppConstants.tasksBox);
+      _projectsBox = await Hive.openBox<Project>('projects_box');
 
-      debugPrint('SyncableTaskRepository initialized successfully');
+      // Create default Inbox project if it doesn't exist
+      if (_projectsBox.isEmpty) {
+        await _projectsBox.put('inbox', Project.inbox());
+        print('Default Inbox project created');
+      }
+
+      print('SyncableProjectRepository initialized successfully');
     } catch (e) {
-      debugPrint('Error initializing SyncableTaskRepository: $e');
+      print('Error initializing SyncableProjectRepository: $e');
       // Create an empty box as fallback
-      _tasksBox = await Hive.openBox<Task>(AppConstants.tasksBox);
+      _projectsBox = await Hive.openBox<Project>('projects_box');
+
+      // Ensure default project exists
+      if (_projectsBox.get('inbox') == null) {
+        await _projectsBox.put('inbox', Project.inbox());
+      }
     }
   }
 
@@ -68,146 +74,74 @@ class SyncableTaskRepository extends TaskRepository
   @override
   ValueNotifier<String?> get lastSyncError => _lastSyncError;
 
-  // Local CRUD operations without sync - these are the same as original repo
-  Future<List<Task>> getAllTasks() async {
-    return _tasksBox.values.toList();
+  // Override base methods to include sync tracking
+  @override
+  Future<List<Project>> getAllProjects() async {
+    return _projectsBox.values.toList();
   }
 
-  Future<List<Task>> getIncompleteTasks() async {
-    return _tasksBox.values
-        .where((task) => task.status != TaskStatus.completed)
-        .toList();
+  @override
+  Future<Project?> getProjectById(String id) async {
+    return _projectsBox.get(id);
   }
 
-  Future<List<Task>> getTasksForDate(DateTime date) async {
-    final startOfDay =
-        DateTime(date.year, date.month, date.day).millisecondsSinceEpoch;
-    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59)
-        .millisecondsSinceEpoch;
-
-    return _tasksBox.values.where((task) {
-      // Include ongoing tasks or tasks with date range overlapping this day
-      return task.ongoing ||
-          (task.startDate <= endOfDay && task.endDate >= startOfDay);
-    }).toList();
-  }
-
-  Future<List<Task>> getTasksInDateRange(
-    DateTime startDate,
-    DateTime endDate,
-  ) async {
-    // Convert to start of day for startDate and end of day for endDate
-    final rangeStart = DateTime(startDate.year, startDate.month, startDate.day)
-        .millisecondsSinceEpoch;
-    final rangeEnd =
-        DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59)
-            .millisecondsSinceEpoch;
-
-    return _tasksBox.values.where((task) {
-      // Include ongoing tasks or tasks with date range overlapping the given range
-      return task.ongoing ||
-          (task.startDate <= rangeEnd && task.endDate >= rangeStart);
-    }).toList();
-  }
-
-  Future<Task?> getTaskById(String id) async {
-    return _tasksBox.get(id);
-  }
-
-  // Modified save method with sync metadata
-  Future<void> saveTask(Task task) async {
-    // Create a copy with updated timestamp for syncing
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final taskWithSyncData = task.copyWith(
-      updatedAt: now,
-    );
-
+  @override
+  Future<void> saveProject(Project project) async {
     // Save locally
-    await _tasksBox.put(task.id, taskWithSyncData);
+    await _projectsBox.put(project.id, project);
 
     // Mark as needing sync
-    await _markRecordForSync(task.id);
+    await _markRecordForSync(project.id);
   }
 
-  Future<void> deleteTask(String id) async {
+  @override
+  Future<void> deleteProject(String id) async {
+    // Don't allow deletion of the default inbox project
+    if (id == 'inbox') {
+      throw Exception('Cannot delete the default Inbox project');
+    }
+    
     // Before deleting, mark as deleted in sync table
     await _markRecordAsDeleted(id);
 
     // Then delete locally
-    await _tasksBox.delete(id);
-  }
-
-  Future<void> markTaskAsInProgress(String id) async {
-    final task = _tasksBox.get(id);
-    if (task != null) {
-      await saveTask(task.markAsInProgress());
-    }
-  }
-
-  Future<void> markTaskAsCompleted(String id) async {
-    final task = _tasksBox.get(id);
-    if (task != null) {
-      await saveTask(task.markAsCompleted());
-    }
-  }
-
-  Future<void> incrementTaskPomodoro(String id) async {
-    final task = _tasksBox.get(id);
-    if (task != null) {
-      await saveTask(task.incrementPomodoro());
-    }
-  }
-
-  // Add method to get tasks by project
-  Future<List<Task>> getTasksByProject(String projectId) async {
-    return _tasksBox.values
-        .where((task) => task.projectId == projectId)
-        .toList();
-  }
-
-  // Update tasks when a project is deleted (move them to Inbox)
-  Future<void> moveTasksToInbox(String fromProjectId) async {
-    final tasks = await getTasksByProject(fromProjectId);
-    for (final task in tasks) {
-      await saveTask(task.copyWith(projectId: 'inbox'));
-    }
+    await _projectsBox.delete(id);
   }
 
   // Sync implementation
-
   // Mark a record for sync
   Future<void> _markRecordForSync(String id) async {
     final prefs = await SharedPreferences.getInstance();
-    final pendingSyncIds = prefs.getStringList('pending_task_sync_ids') ?? [];
+    final pendingSyncIds = prefs.getStringList('pending_project_sync_ids') ?? [];
 
     if (!pendingSyncIds.contains(id)) {
       pendingSyncIds.add(id);
-      await prefs.setStringList('pending_task_sync_ids', pendingSyncIds);
+      await prefs.setStringList('pending_project_sync_ids', pendingSyncIds);
     }
   }
 
   // Mark a record as deleted for sync
   Future<void> _markRecordAsDeleted(String id) async {
     final prefs = await SharedPreferences.getInstance();
-    final deletedIds = prefs.getStringList('deleted_task_ids') ?? [];
+    final deletedIds = prefs.getStringList('deleted_project_ids') ?? [];
 
     if (!deletedIds.contains(id)) {
       deletedIds.add(id);
-      await prefs.setStringList('deleted_task_ids', deletedIds);
+      await prefs.setStringList('deleted_project_ids', deletedIds);
     }
   }
 
   // Get pending sync records
   Future<Set<String>> _getPendingSyncIds() async {
     final prefs = await SharedPreferences.getInstance();
-    final pendingSyncIds = prefs.getStringList('pending_task_sync_ids') ?? [];
+    final pendingSyncIds = prefs.getStringList('pending_project_sync_ids') ?? [];
     return pendingSyncIds.toSet();
   }
 
   // Get deleted record IDs
   Future<Set<String>> _getDeletedIds() async {
     final prefs = await SharedPreferences.getInstance();
-    final deletedIds = prefs.getStringList('deleted_task_ids') ?? [];
+    final deletedIds = prefs.getStringList('deleted_project_ids') ?? [];
     return deletedIds.toSet();
   }
 
@@ -216,9 +150,9 @@ class SyncableTaskRepository extends TaskRepository
     final prefs = await SharedPreferences.getInstance();
 
     // Update pending sync IDs
-    final pendingSyncIds = prefs.getStringList('pending_task_sync_ids') ?? [];
+    final pendingSyncIds = prefs.getStringList('pending_project_sync_ids') ?? [];
     pendingSyncIds.removeWhere((id) => processedIds.contains(id));
-    await prefs.setStringList('pending_task_sync_ids', pendingSyncIds);
+    await prefs.setStringList('pending_project_sync_ids', pendingSyncIds);
   }
 
   // Clear deletion markers for processed records
@@ -226,53 +160,37 @@ class SyncableTaskRepository extends TaskRepository
     final prefs = await SharedPreferences.getInstance();
 
     // Update deleted IDs
-    final deletedIds = prefs.getStringList('deleted_task_ids') ?? [];
+    final deletedIds = prefs.getStringList('deleted_project_ids') ?? [];
     deletedIds.removeWhere((id) => processedIds.contains(id));
-    await prefs.setStringList('deleted_task_ids', deletedIds);
+    await prefs.setStringList('deleted_project_ids', deletedIds);
   }
 
-  Map<String, dynamic> _taskToMap(Task task) {
-  final userId = _authService.userId;
-  debugPrint('Converting task to map: ${task.id}, user_id: $userId');
-  
-  return {
-    'id': task.id,
-    'title': task.title,
-    'description': task.description,
-    'status': task.status.index,
-    'created_at': task.createdAt,
-    'updated_at': task.updatedAt,
-    'completed_at': task.completedAt,
-    'pomodoros_completed': task.pomodorosCompleted,
-    'estimated_pomodoros': task.estimatedPomodoros,
-    'start_date': task.startDate,
-    'end_date': task.endDate,
-    'ongoing': task.ongoing,
-    'has_reminder': task.hasReminder,
-    'reminder_time': task.reminderTime,
-    'project_id': task.projectId,
-    'user_id': userId,
+  // Convert Project to Map for Supabase
+  Map<String, dynamic> _projectToMap(Project project) {
+    return {
+      'id': project.id,
+      'name': project.name,
+      'description': project.description,
+      'color': project.color,
+      'emoji': project.emoji,
+      'created_at': project.createdAt,
+      'updated_at': project.updatedAt,
+      'is_default': project.isDefault,
+      'user_id': _authService.userId,
     };
   }
 
-  // Convert Supabase Map to Task
-  Task _mapToTask(Map<String, dynamic> map) {
-    return Task(
+  // Convert Supabase Map to Project
+  Project _mapToProject(Map<String, dynamic> map) {
+    return Project(
       id: map['id'] as String,
-      title: map['title'] as String,
+      name: map['name'] as String,
       description: map['description'] as String?,
-      status: TaskStatus.values[map['status'] as int],
+      emoji: map['emoji'] as String?,
+      color: map['color'] as int,
       createdAt: map['created_at'] as int,
       updatedAt: map['updated_at'] as int,
-      completedAt: map['completed_at'] as int?,
-      pomodorosCompleted: map['pomodoros_completed'] as int,
-      estimatedPomodoros: map['estimated_pomodoros'] as int?,
-      startDate: map['start_date'] as int,
-      endDate: map['end_date'] as int,
-      ongoing: map['ongoing'] as bool,
-      hasReminder: map['has_reminder'] as bool,
-      reminderTime: map['reminder_time'] as int?,
-      projectId: map['project_id'] as String,
+      isDefault: map['is_default'] as bool,
     );
   }
 
@@ -296,17 +214,17 @@ class SyncableTaskRepository extends TaskRepository
         final syncedIds = <String>{};
 
         for (final id in pendingSyncIds) {
-          final task = _tasksBox.get(id);
-          if (task != null) {
-            // Check if this task is also marked as deleted
+          final project = _projectsBox.get(id);
+          if (project != null) {
+            // Check if this project is also marked as deleted
             if (deletedIds.contains(id)) {
               // Skip updating it since it will be deleted
               continue;
             }
 
             // Push to Supabase
-            final taskMap = _taskToMap(task);
-            await _supabase.from(_tableName).upsert(taskMap).eq('id', id);
+            final projectMap = _projectToMap(project);
+            await _supabase.from(_tableName).upsert(projectMap).eq('id', id);
 
             syncedIds.add(id);
             syncCount++;
@@ -386,23 +304,28 @@ class SyncableTaskRepository extends TaskRepository
           continue;
         }
 
+        // Skip overwriting the inbox project
+        if (id == 'inbox') {
+          continue;
+        }
+
         // Get local record
-        final localTask = _tasksBox.get(id);
+        final localProject = _projectsBox.get(id);
 
         // If local record exists, check which is newer
-        if (localTask != null) {
+        if (localProject != null) {
           final remoteUpdatedAt = recordMap['updated_at'] as int;
 
           // Only update if remote is newer
-          if (remoteUpdatedAt > localTask.updatedAt) {
-            final task = _mapToTask(recordMap);
-            await _tasksBox.put(id, task);
+          if (remoteUpdatedAt > localProject.updatedAt) {
+            final project = _mapToProject(recordMap);
+            await _projectsBox.put(id, project);
             syncCount++;
           }
         } else {
           // No local record, just add it
-          final task = _mapToTask(recordMap);
-          await _tasksBox.put(id, task);
+          final project = _mapToProject(recordMap);
+          await _projectsBox.put(id, project);
           syncCount++;
         }
       }
@@ -427,9 +350,14 @@ class SyncableTaskRepository extends TaskRepository
           continue;
         }
 
+        // Skip deleting the inbox project
+        if (id == 'inbox') {
+          continue;
+        }
+
         // Delete locally if it exists
-        if (_tasksBox.containsKey(id)) {
-          await _tasksBox.delete(id);
+        if (_projectsBox.containsKey(id)) {
+          await _projectsBox.delete(id);
           syncCount++;
         }
       }
@@ -491,22 +419,22 @@ class SyncableTaskRepository extends TaskRepository
   }
 
   @override
-  Future<List<Task>> getLocalModifiedRecords() async {
+  Future<List<Project>> getLocalModifiedRecords() async {
     final pendingSyncIds = await _getPendingSyncIds();
 
-    final tasks = <Task>[];
+    final projects = <Project>[];
     for (final id in pendingSyncIds) {
-      final task = _tasksBox.get(id);
-      if (task != null) {
-        tasks.add(task);
+      final project = _projectsBox.get(id);
+      if (project != null) {
+        projects.add(project);
       }
     }
 
-    return tasks;
+    return projects;
   }
 
   @override
-  Future<List<Task>> getRemoteModifiedRecords() async {
+  Future<List<Project>> getRemoteModifiedRecords() async {
     if (!_authService.isAuthenticated) return [];
 
     try {
@@ -522,7 +450,7 @@ class SyncableTaskRepository extends TaskRepository
       final remoteRecords = response as List<dynamic>;
 
       return remoteRecords
-          .map((record) => _mapToTask(record as Map<String, dynamic>))
+          .map((record) => _mapToProject(record as Map<String, dynamic>))
           .toList();
     } catch (e) {
       debugPrint('Error getting remote modified records: $e');
@@ -530,8 +458,24 @@ class SyncableTaskRepository extends TaskRepository
     }
   }
 
-  // Clean up resources
-  Future<void> close() async {
-    await _tasksBox.close();
+  Future<void> syncInboxProject() async {
+  try {
+    // Get the inbox project
+    final inboxProject = await getProjectById('inbox');
+    if (inboxProject == null) {
+      debugPrint('Inbox project not found, cannot sync');
+      return;
+    }
+    
+    // Convert to map
+    final projectMap = _projectToMap(inboxProject);
+    
+    // Upsert to Supabase
+    await _supabase.from(_tableName).upsert(projectMap).eq('id', 'inbox');
+    debugPrint('Inbox project synced successfully');
+  } catch (e) {
+      debugPrint('Error syncing inbox project: $e');
+      throw e;
+    }
   }
 }

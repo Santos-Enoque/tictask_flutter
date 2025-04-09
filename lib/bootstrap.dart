@@ -4,6 +4,7 @@ import 'dart:developer';
 import 'package:bloc/bloc.dart';
 import 'package:flutter/widgets.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tictask/app/services/init_supabase.dart';
 import 'package:tictask/core/utils/logger.dart';
 import 'package:tictask/injection_container.dart' as di;
@@ -30,14 +31,20 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
   };
 
   Bloc.observer = const AppBlocObserver();
+  
   // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize SharedPreferences first (needed for sync settings)
+  await SharedPreferences.getInstance();
+  
   // Initialize Supabase before Hive
   await initSupabase();
+  
   // Initialize Hive
   await _initializeHive();
 
-  // Initialize dependency injection
+  // Initialize dependency injection - this must be after Hive and Supabase
   await di.init();
 
   // Set up error handling
@@ -63,9 +70,8 @@ Future<void> _initializeHive() async {
     // await Hive.deleteBoxFromDisk('timer_settings');
     // await Hive.deleteBoxFromDisk('user_settings');
 
-    // Register adapters for enums
     // Note: The actual adapter registrations will be done in the repository
-    //       to avoid circular dependencies
+    // to avoid circular dependencies
 
     AppLogger.i('Hive initialized successfully');
   } catch (e, stack) {

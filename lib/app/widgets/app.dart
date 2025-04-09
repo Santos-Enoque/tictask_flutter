@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:tictask/app/constants/app_constants.dart';
 import 'package:tictask/app/routes/app_router.dart';
+import 'package:tictask/app/services/auth_service.dart';
 import 'package:tictask/app/theme/app_theme.dart';
 import 'package:tictask/app/theme/themes/dark_theme.dart';
 import 'package:tictask/app/theme/themes/light_theme.dart';
@@ -14,9 +15,27 @@ import 'package:tictask/features/timer/bloc/timer_bloc.dart';
 import 'package:tictask/injection_container.dart';
 
 /// Main application widget
-class App extends StatelessWidget {
+class App extends StatefulWidget {
   const App({super.key});
 
+  @override
+  State<App> createState() => _AppState();
+}
+
+class _AppState extends State<App> {
+  late final AuthService _authService;
+  
+  @override
+  void initState() {
+    super.initState();
+    
+    // Get auth service
+    _authService = sl<AuthService>();
+    
+    // Setup auth state listener for syncing data
+    _authService.setupAuthStateListener();
+  }
+  
   @override
   Widget build(BuildContext context) {
     final router = getAppRouter();

@@ -31,7 +31,7 @@ dependencies:
   supabase_flutter: ^2.8.4
   jwt_decoder: ^2.0.1
   connectivity_plus: ^6.1.3
-
+  shared_preferences: ^2.5.3
 dev_dependencies:
   bloc_test: ^9.1.7
   build_runner: ^2.4.6
