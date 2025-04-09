@@ -4,6 +4,7 @@ import 'dart:developer';
 import 'package:bloc/bloc.dart';
 import 'package:flutter/widgets.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:tictask/app/services/init_supabase.dart';
 import 'package:tictask/core/utils/logger.dart';
 import 'package:tictask/injection_container.dart' as di;
 
@@ -31,7 +32,8 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
   Bloc.observer = const AppBlocObserver();
   // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
-
+  // Initialize Supabase before Hive
+  await initSupabase();
   // Initialize Hive
   await _initializeHive();
 
