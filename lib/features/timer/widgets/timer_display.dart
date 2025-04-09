@@ -24,6 +24,15 @@ class TimerDisplay extends StatelessWidget {
     final formattedTime = 
         '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
 
+    // Get screen size to determine if we're on a larger device
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    // Define fixed sizes based on device type
+    // For mobile devices use a smaller size, for larger devices use a bigger one
+    final timerSize = screenWidth > 600 ? 320.0 : 260.0;
+    final strokeWidth = screenWidth > 600 ? 10.0 : 8.0;
+    final fontSize = screenWidth > 600 ? 1.2 : 1.0; // Scale factor for font size
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -51,8 +60,8 @@ class TimerDisplay extends StatelessWidget {
 
         // Timer container with progress indicator
         Container(
-          width: MediaQuery.of(context).size.width * 0.7,
-          height: MediaQuery.of(context).size.width * 0.7,
+          width: timerSize,
+          height: timerSize,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: Theme.of(context).colorScheme.surface,
@@ -69,11 +78,11 @@ class TimerDisplay extends StatelessWidget {
             children: [
               // Progress indicator
               SizedBox(
-                width: MediaQuery.of(context).size.width * 0.7,
-                height: MediaQuery.of(context).size.width * 0.7,
+                width: timerSize,
+                height: timerSize,
                 child: CircularProgressIndicator(
                   value: progress,
-                  strokeWidth: 8,
+                  strokeWidth: strokeWidth,
                   backgroundColor: (progressColor ?? Theme.of(context).colorScheme.primary).withOpacity(0.2),
                   color: progressColor ?? Theme.of(context).colorScheme.primary,
                 ),
@@ -87,6 +96,7 @@ class TimerDisplay extends StatelessWidget {
                     formattedTime,
                     style: AppTextStyles.displayMedium(context).copyWith(
                       fontWeight: FontWeight.bold,
+                      fontSize: AppTextStyles.displayMedium(context).fontSize! * fontSize,
                       fontFeatures: const [
                         FontFeature.tabularFigures(),
                       ],
