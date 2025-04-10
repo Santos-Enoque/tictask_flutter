@@ -233,11 +233,30 @@ class SyncService {
       await _projectRepository.pushChanges();
       await _taskRepository.pushChanges();
       await _timerRepository.pushChanges();
+
+      // NEW: Also sync timer configuration
+    await _syncTimerConfigs();
     } catch (e) {
       debugPrint('Error pushing changes: $e');
       throw Exception('Failed to push changes: $e');
     }
   }
+
+  // Add this new helper method to sync timer configs
+Future<void> _syncTimerConfigs() async {
+  // Skip if not authenticated
+  if (!_authService.isAuthenticated) return;
+
+  try {
+    // Sync timer config
+    await _timerRepository.syncTimerConfig();
+    debugPrint('Timer config synced successfully');
+  } catch (e) {
+    debugPrint('Error syncing timer configs: $e');
+    // Don't throw an exception here to avoid interrupting the sync process
+  }
+}
+
 
   // Restart background sync (called when settings change)
   void restartBackgroundSync() {

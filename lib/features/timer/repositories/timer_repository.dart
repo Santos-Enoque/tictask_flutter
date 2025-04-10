@@ -1,10 +1,12 @@
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:tictask/app/constants/app_constants.dart';
+import 'package:tictask/core/utils/logger.dart';
 import 'package:tictask/features/timer/models/models.dart';
 
 class TimerRepository {
-  static const String _configBoxName = 'timer_config';
-  static const String _stateBoxName = 'timer_state';
-  static const String _sessionsBoxName = 'timer_sessions';
+  static const String _configBoxName = AppConstants.timerConfigBox;
+  static const String _stateBoxName = AppConstants.timerStateBox;
+  static const String _sessionsBoxName = AppConstants.timerSessionBox;
 
   late Box<TimerConfig> _configBox;
   late Box<TimerStateModel> _stateBox;
@@ -86,10 +88,22 @@ class TimerRepository {
   }
 
   // Timer config methods
-  Future<TimerConfig> getTimerConfig() async {
-    return _configBox.get('default') ?? TimerConfig.defaultConfig;
+Future<TimerConfig> getTimerConfig() async {
+  try {
+    // Try to get from Hive box, handle any potential errors
+    final config = _configBox.get('default');
+    if (config != null) {
+      AppLogger.i('Retrieved timer config from Hive');
+      return config;
+    } else {
+      AppLogger.w('No timer config found in Hive, using default');
+      return TimerConfig.defaultConfig;
+    }
+  } catch (e) {
+    AppLogger.e('Error getting timer config from Hive: $e');
+    return TimerConfig.defaultConfig;
   }
-
+}
   Future<void> saveTimerConfig(TimerConfig config) async {
     await _configBox.put('default', config);
   }

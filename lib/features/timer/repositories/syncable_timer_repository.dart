@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tictask/app/constants/app_constants.dart';
 import 'package:tictask/app/services/auth_service.dart';
 import 'package:tictask/app/repositories/syncable_repository.dart';
+import 'package:tictask/core/utils/logger.dart';
 import 'package:tictask/features/timer/models/models.dart';
 import 'package:tictask/features/timer/repositories/timer_repository.dart';
 
@@ -63,8 +64,10 @@ class SyncableTimerRepository extends TimerRepository
 
       // Open boxes
       _configBox = await Hive.openBox<TimerConfig>(AppConstants.timerConfigBox);
-      _stateBox = await Hive.openBox<TimerStateModel>(AppConstants.timerStateBox);
-      _sessionsBox = await Hive.openBox<TimerSession>(AppConstants.timerSessionBox);
+      _stateBox =
+          await Hive.openBox<TimerStateModel>(AppConstants.timerStateBox);
+      _sessionsBox =
+          await Hive.openBox<TimerSession>(AppConstants.timerSessionBox);
 
       // Initialize with default values if empty
       if (_configBox.isEmpty) {
@@ -83,13 +86,16 @@ class SyncableTimerRepository extends TimerRepository
       try {
         // If boxes weren't opened, try to open them
         if (!Hive.isBoxOpen(AppConstants.timerConfigBox)) {
-          _configBox = await Hive.openBox<TimerConfig>(AppConstants.timerConfigBox);
+          _configBox =
+              await Hive.openBox<TimerConfig>(AppConstants.timerConfigBox);
         }
         if (!Hive.isBoxOpen(AppConstants.timerStateBox)) {
-          _stateBox = await Hive.openBox<TimerStateModel>(AppConstants.timerStateBox);
+          _stateBox =
+              await Hive.openBox<TimerStateModel>(AppConstants.timerStateBox);
         }
         if (!Hive.isBoxOpen(AppConstants.timerSessionBox)) {
-          _sessionsBox = await Hive.openBox<TimerSession>(AppConstants.timerSessionBox);
+          _sessionsBox =
+              await Hive.openBox<TimerSession>(AppConstants.timerSessionBox);
         }
 
         // Initialize with default values
@@ -104,9 +110,12 @@ class SyncableTimerRepository extends TimerRepository
       } catch (recoveryError) {
         print('Failed to recover SyncableTimerRepository: $recoveryError');
         // Create empty boxes as a last resort
-        _configBox = await Hive.openBox<TimerConfig>(AppConstants.timerConfigBox);
-        _stateBox = await Hive.openBox<TimerStateModel>(AppConstants.timerStateBox);
-        _sessionsBox = await Hive.openBox<TimerSession>(AppConstants.timerSessionBox);
+        _configBox =
+            await Hive.openBox<TimerConfig>(AppConstants.timerConfigBox);
+        _stateBox =
+            await Hive.openBox<TimerStateModel>(AppConstants.timerStateBox);
+        _sessionsBox =
+            await Hive.openBox<TimerSession>(AppConstants.timerSessionBox);
       }
     }
   }
@@ -120,13 +129,13 @@ class SyncableTimerRepository extends TimerRepository
 
   @override
   ValueNotifier<String?> get lastSyncError => _lastSyncError;
-  
+
   // Override session saving to include sync tracking
   @override
   Future<void> saveSession(TimerSession session) async {
     // Save locally
     await _sessionsBox.put(session.id, session);
-    
+
     // Mark for sync
     await _markRecordForSync(session.id);
   }
@@ -135,11 +144,13 @@ class SyncableTimerRepository extends TimerRepository
   // Mark a record for sync
   Future<void> _markRecordForSync(String id) async {
     final prefs = await SharedPreferences.getInstance();
-    final pendingSyncIds = prefs.getStringList('pending_timer_session_sync_ids') ?? [];
+    final pendingSyncIds =
+        prefs.getStringList('pending_timer_session_sync_ids') ?? [];
 
     if (!pendingSyncIds.contains(id)) {
       pendingSyncIds.add(id);
-      await prefs.setStringList('pending_timer_session_sync_ids', pendingSyncIds);
+      await prefs.setStringList(
+          'pending_timer_session_sync_ids', pendingSyncIds);
     }
   }
 
@@ -157,7 +168,8 @@ class SyncableTimerRepository extends TimerRepository
   // Get pending sync records
   Future<Set<String>> _getPendingSyncIds() async {
     final prefs = await SharedPreferences.getInstance();
-    final pendingSyncIds = prefs.getStringList('pending_timer_session_sync_ids') ?? [];
+    final pendingSyncIds =
+        prefs.getStringList('pending_timer_session_sync_ids') ?? [];
     return pendingSyncIds.toSet();
   }
 
@@ -173,7 +185,8 @@ class SyncableTimerRepository extends TimerRepository
     final prefs = await SharedPreferences.getInstance();
 
     // Update pending sync IDs
-    final pendingSyncIds = prefs.getStringList('pending_timer_session_sync_ids') ?? [];
+    final pendingSyncIds =
+        prefs.getStringList('pending_timer_session_sync_ids') ?? [];
     pendingSyncIds.removeWhere((id) => processedIds.contains(id));
     await prefs.setStringList('pending_timer_session_sync_ids', pendingSyncIds);
   }
@@ -189,7 +202,12 @@ class SyncableTimerRepository extends TimerRepository
   }
 
   // Convert TimerSession to Map for Supabase
+  // First, let's improve the _sessionToMap method to ensure proper userId mapping
   Map<String, dynamic> _sessionToMap(TimerSession session) {
+    final userId = _authService.userId;
+    AppLogger.i(
+        'Converting timer session to map: ${session.id}, user_id: $userId');
+
     return {
       'id': session.id,
       'date': session.date.toIso8601String(),
@@ -199,10 +217,10 @@ class SyncableTimerRepository extends TimerRepository
       'type': session.type.index,
       'completed': session.completed,
       'task_id': session.taskId,
-      'user_id': _authService.userId,
+      'user_id': userId,
     };
   }
-  
+
   // Convert Supabase Map to TimerSession
   TimerSession _mapToSession(Map<String, dynamic> map) {
     return TimerSession(
@@ -403,29 +421,56 @@ class SyncableTimerRepository extends TimerRepository
     return pendingSyncIds.isNotEmpty || deletedIds.isNotEmpty;
   }
 // Add method to sync timer configuration
-Future<void> syncTimerConfig() async {
-  try {
-    final config = await getTimerConfig();
-    debugPrint('Syncing timer config: ${config.id}');
-    
-    // Convert to map
-    final configMap = {
-      'id': config.id,
-      'pomo_duration': config.pomoDuration,
-      'short_break_duration': config.shortBreakDuration,
-      'long_break_duration': config.longBreakDuration,
-      'long_break_interval': config.longBreakInterval,
-      'user_id': _authService.userId,
-    };
-    
-    // Upsert to Supabase
-    await _supabase.from('timer_config').upsert(configMap).eq('id', config.id);
-    debugPrint('Timer config synced successfully');
-  } catch (e) {
-    debugPrint('Error syncing timer config: $e');
-    throw e;
+// Update the syncTimerConfig method in lib/features/timer/repositories/syncable_timer_repository.dart
+
+  Future<void> syncTimerConfig() async {
+    // Skip if not authenticated
+    if (!_authService.isAuthenticated) {
+      AppLogger.i('Skipping timer config sync: Not authenticated');
+      return;
+    }
+
+    final userId = _authService.userId;
+    if (userId == null) {
+      AppLogger.i('Skipping timer config sync: User ID is null');
+      return;
+    }
+
+    try {
+      final config = await getTimerConfig();
+      AppLogger.i('Syncing timer config: ${config.id} and user_id: $userId');
+
+      // Convert to map
+      final configMap = {
+        'id': '${config.id}_$userId', // Make it unique per user
+        'pomo_duration': config.pomoDuration,
+        'short_break_duration': config.shortBreakDuration,
+        'long_break_duration': config.longBreakDuration,
+        'long_break_interval': config.longBreakInterval,
+        'user_id': userId
+        // 'updated_at': DateTime.now().millisecondsSinceEpoch, // Add timestamp for syncing
+      };
+
+      // Verify if the timer_config table exists
+      try {
+        // Try a count operation to check if table exists
+        await _supabase.from('timer_configs').select('id').limit(1);
+
+        // If we reach this point, the table exists, so perform the upsert
+        await _supabase.from('timer_configs').upsert(configMap);
+        AppLogger.i('Timer config synced successfully');
+      } catch (tableError) {
+        AppLogger.w(
+            'Timer config table might not exist or is inaccessible: $tableError');
+        // We could try to create the table here if we have the necessary permissions
+        // But for now just log the error
+      }
+    } catch (e) {
+      AppLogger.e('Error syncing timer config: $e');
+      // Don't rethrow the error - we want to log it but not fail the entire sync process
+    }
   }
-}
+
   @override
   Future<List<TimerSession>> getLocalModifiedRecords() async {
     final pendingSyncIds = await _getPendingSyncIds();
