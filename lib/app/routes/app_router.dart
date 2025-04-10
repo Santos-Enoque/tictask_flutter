@@ -1,9 +1,13 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tictask/app/routes/routes.dart';
 import 'package:tictask/app/screens/home_screen.dart';
 import 'package:tictask/app/screens/not_found_screen.dart';
 import 'package:tictask/app/services/auth_service.dart';
+import 'package:tictask/app/services/window_service.dart';
 import 'package:tictask/features/auth/screens/login_screen.dart';
 import 'package:tictask/features/settings/screens/window_settings_screen.dart';
 import 'package:tictask/features/timer/screens/timer_screen.dart';
@@ -89,7 +93,17 @@ GoRouter getAppRouter() {
         routes: [
           GoRoute(
             path: 'window',
-            builder: (context, state) => const WindowSettingsScreen(),
+            pageBuilder: (context, state) {
+              // Enable window resizing when entering window settings
+              if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+                WindowService.setResizable(true);
+              }
+              
+              return MaterialPage(
+                key: state.pageKey,
+                child: const WindowSettingsScreen(),
+              );
+            },
           ),
         ],
       ),
@@ -99,9 +113,10 @@ GoRouter getAppRouter() {
       ),
     ],
 
-    // Optional: Add observers for analytics or debugging
+    // Optional: Add observers for analytics or debugging and window control
     observers: [
       GoRouterObserver(),
+      WindowResizableObserver(),
     ],
   );
 }
@@ -111,5 +126,36 @@ class GoRouterObserver extends NavigatorObserver {
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     debugPrint('Navigation: ${route.settings.name}');
+  }
+}
+
+// Observer to manage window resizability
+class WindowResizableObserver extends NavigatorObserver {
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _checkWindowSettings(route, previousRoute);
+  }
+  
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    _checkWindowSettings(oldRoute, newRoute);
+  }
+  
+  // Check if we're leaving the window settings screen
+  void _checkWindowSettings(Route<dynamic>? currentRoute, Route<dynamic>? nextRoute) {
+    if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      // If we're leaving the window settings page
+      if (currentRoute?.settings.name?.contains('window') == true &&
+          nextRoute?.settings.name?.contains('window') != true) {
+        
+        debugPrint('Leaving window settings - restoring resizable state');
+        
+        // Get the saved resizable setting from SharedPreferences
+        SharedPreferences.getInstance().then((prefs) {
+          final isResizable = prefs.getBool('window_resizable') ?? false;
+          WindowService.setResizable(isResizable);
+        });
+      }
+    }
   }
 }

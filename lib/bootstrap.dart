@@ -36,11 +36,11 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
   // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Initialize SharedPreferences first (needed for window settings and sync settings)
+  await SharedPreferences.getInstance();
+  
   // Initialize window settings for desktop platforms
   await WindowService.initWindow();
-  
-  // Initialize SharedPreferences first (needed for sync settings)
-  await SharedPreferences.getInstance();
   
   // Initialize Supabase before Hive
   await initSupabase();
