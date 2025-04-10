@@ -172,7 +172,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: const Text('Configure default timer durations'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {
-              // Navigate to timer settings
+              context.push(Routes.timerSettings);
             },
           ),
           const Divider(),

@@ -172,10 +172,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     // App logo/title
                     Center(
-                      child: Icon(
-                        Icons.timer,
-                        size: 80,
-                        color: Theme.of(context).colorScheme.primary,
+                      child: Image.asset(
+                        'assets/icons/app_icon.png',
+                        width: 80,
+                        height: 80,
                       ),
                     ),
                     const SizedBox(height: AppDimensions.md),

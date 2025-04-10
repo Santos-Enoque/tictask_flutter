@@ -115,7 +115,9 @@ class NotificationService {
         final LinuxNotificationDetails linuxDetails = LinuxNotificationDetails(
           urgency: LinuxNotificationUrgency.normal,
           category: LinuxNotificationCategory.device,
-          sound: _soundsEnabled ? ThemeLinuxSound('bell') : null,
+          sound: _soundsEnabled
+              ? AssetsLinuxSound('assets/sounds/bell.wav')
+              : null,
         );
 
         final NotificationDetails notificationDetails = NotificationDetails(
