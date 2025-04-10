@@ -17,8 +17,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late int _selectedIndex;
-
-  // Create page controllers if you want to maintain state between tab switches
+  TimerDisplayMode _timerDisplayMode = TimerDisplayMode.normal;
 
   @override
   void initState() {
@@ -27,8 +26,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // Define your screens here
-  final List<Widget> _screens = [
-    const TimerScreen(showNavBar: false, key: PageStorageKey('timer')),
+  late final List<Widget> _screens = [
+    TimerScreen(
+      showNavBar: false,
+      key: const PageStorageKey('timer'),
+      onDisplayModeChanged: (mode) {
+        setState(() {
+          _timerDisplayMode = mode;
+        });
+      },
+    ),
     const TasksScreen(showNavBar: false, key: PageStorageKey('tasks')),
     const StatsScreen(showNavBar: false, key: PageStorageKey('stats')),
     const CalendarScreen(showNavBar: false, key: PageStorageKey('calendar')),
@@ -42,41 +49,43 @@ class _HomeScreenState extends State<HomeScreen> {
         index: _selectedIndex,
         children: _screens,
       ),
-      bottomNavigationBar: NavigationBar(
-        onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        selectedIndex: _selectedIndex,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(LucideIcons.timer),
-            selectedIcon: Icon(Icons.timer),
-            label: '',
-          ),
-          NavigationDestination(
-            icon: Icon(LucideIcons.checkCircle),
-            selectedIcon: Icon(LucideIcons.checkCircle),
-            label: '',
-          ),
-          NavigationDestination(
-            icon: Icon(LucideIcons.barChart2),
-            selectedIcon: Icon(LucideIcons.barChart),
-            label: '',
-          ),
-          NavigationDestination(
-            icon: Icon(LucideIcons.calendar),
-            selectedIcon: Icon(LucideIcons.calendar),
-            label: '',
-          ),
-          NavigationDestination(
-            icon: Icon(LucideIcons.settings),
-            selectedIcon: Icon(LucideIcons.settings),
-            label: '',
-          ),
-        ],
-      ),
+      bottomNavigationBar: _timerDisplayMode == TimerDisplayMode.normal
+          ? NavigationBar(
+              onDestinationSelected: (index) {
+                setState(() {
+                  _selectedIndex = index;
+                });
+              },
+              selectedIndex: _selectedIndex,
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(LucideIcons.timer),
+                  selectedIcon: Icon(Icons.timer),
+                  label: '',
+                ),
+                NavigationDestination(
+                  icon: Icon(LucideIcons.checkCircle),
+                  selectedIcon: Icon(LucideIcons.checkCircle),
+                  label: '',
+                ),
+                NavigationDestination(
+                  icon: Icon(LucideIcons.barChart2),
+                  selectedIcon: Icon(LucideIcons.barChart),
+                  label: '',
+                ),
+                NavigationDestination(
+                  icon: Icon(LucideIcons.calendar),
+                  selectedIcon: Icon(LucideIcons.calendar),
+                  label: '',
+                ),
+                NavigationDestination(
+                  icon: Icon(LucideIcons.settings),
+                  selectedIcon: Icon(LucideIcons.settings),
+                  label: '',
+                ),
+              ],
+            )
+          : null,
     );
   }
 }

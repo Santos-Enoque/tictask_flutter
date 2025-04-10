@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/app/routes/routes.dart';
+import 'package:tictask/app/services/window_service.dart';
 import 'package:tictask/app/theme/dimensions.dart';
 import 'package:tictask/features/projects/models/project.dart';
 import 'package:tictask/features/projects/repositories/project_repository.dart';
@@ -17,6 +18,15 @@ import 'package:tictask/features/timer/models/models.dart';
 import 'package:tictask/features/timer/repositories/timer_repository.dart';
 import 'package:tictask/features/timer/widgets/widgets.dart';
 import 'package:tictask/injection_container.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+enum TimerDisplayMode {
+  normal, // Regular display with all UI elements
+  fullscreen, // Full-screen mode with only timer and controls
+  focus // Small floating window with timer and controls
+}
 
 class TimerScreen extends StatefulWidget {
   const TimerScreen({
@@ -24,11 +34,13 @@ class TimerScreen extends StatefulWidget {
     this.showNavBar = true,
     this.taskId,
     this.autoStart = false,
+    this.onDisplayModeChanged,
   });
 
   final bool showNavBar;
   final String? taskId;
   final bool autoStart;
+  final void Function(TimerDisplayMode)? onDisplayModeChanged;
 
   // Static properties to hold pending task info
   static String? _pendingTaskId;
@@ -55,6 +67,14 @@ class _TimerScreenState extends State<TimerScreen> {
 
   // Add this state variable to track when to reload projects
   int _projectsRefreshCounter = 0;
+
+  // New variables for display modes
+  TimerDisplayMode _displayMode = TimerDisplayMode.normal;
+  bool _wasResizableBefore = false; // Store previous resizable state
+  Size? _previousWindowSize; // Store previous window size
+
+  // Track if we've entered focus mode
+  bool _inFocusMode = false;
 
   @override
   void initState() {
@@ -163,6 +183,13 @@ class _TimerScreenState extends State<TimerScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    // If we were in full-screen or focus mode, restore the previous window state
+    _exitSpecialModes();
+    super.dispose();
+  }
+
   // Update this method to not use setState
   void _updateTaskFuture(String taskId) {
     try {
@@ -191,6 +218,150 @@ class _TimerScreenState extends State<TimerScreen> {
     }
   }
 
+  // Toggle full-screen mode
+  Future<void> _toggleFullScreen() async {
+    if (_displayMode != TimerDisplayMode.fullscreen) {
+      // Store current window state before going fullscreen
+      if (!kIsWeb &&
+          (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+        // Store previous resizable state
+        final prefs = await SharedPreferences.getInstance();
+        _wasResizableBefore =
+            prefs.getBool(WindowService.windowResizableKey) ?? false;
+
+        // Get current window size
+        if (_previousWindowSize == null) {
+          final width = prefs.getDouble(WindowService.windowWidthKey) ??
+              WindowService.defaultWindowSize.width;
+          final height = prefs.getDouble(WindowService.windowHeightKey) ??
+              WindowService.defaultWindowSize.height;
+          _previousWindowSize = Size(width, height);
+        }
+
+        // Enable resizing and then make it fullscreen
+        await WindowService.setResizable(true);
+        await WindowService.windowManager.setFullScreen(true);
+      }
+
+      setState(() {
+        _displayMode = TimerDisplayMode.fullscreen;
+      });
+      widget.onDisplayModeChanged?.call(_displayMode);
+    } else {
+      // Exit fullscreen
+      if (!kIsWeb &&
+          (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+        await WindowService.windowManager.setFullScreen(false);
+
+        // Restore original size and position
+        if (_previousWindowSize != null) {
+          await WindowService.setWindowSize(_previousWindowSize!);
+          await WindowService.centerWindow();
+        }
+
+        // Restore original resizable state
+        await WindowService.setResizable(_wasResizableBefore);
+      }
+
+      setState(() {
+        _displayMode = TimerDisplayMode.normal;
+      });
+      widget.onDisplayModeChanged?.call(_displayMode);
+    }
+  }
+
+  // Toggle focus mode
+  Future<void> _toggleFocusMode() async {
+    if (_displayMode != TimerDisplayMode.focus) {
+      // Store current window state before entering focus mode
+      if (!kIsWeb &&
+          (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+        // Store previous resizable state
+        final prefs = await SharedPreferences.getInstance();
+        _wasResizableBefore =
+            prefs.getBool(WindowService.windowResizableKey) ?? false;
+
+        // Get current window size
+        if (_previousWindowSize == null) {
+          final width = prefs.getDouble(WindowService.windowWidthKey) ??
+              WindowService.defaultWindowSize.width;
+          final height = prefs.getDouble(WindowService.windowHeightKey) ??
+              WindowService.defaultWindowSize.height;
+          _previousWindowSize = Size(width, height);
+        }
+
+        // Enable window configuration for focus mode
+        await WindowService.setResizable(true);
+        await WindowService.setAlwaysOnTop(true);
+
+        // Set to a small floating window
+        final focusSize = WindowService.focusModeSize;
+        await WindowService.setWindowSize(focusSize);
+
+        // Set flag to indicate we're in focus mode
+        _inFocusMode = true;
+      }
+
+      setState(() {
+        _displayMode = TimerDisplayMode.focus;
+      });
+      widget.onDisplayModeChanged?.call(_displayMode);
+    } else {
+      // Exit focus mode
+      await _exitFocusMode();
+    }
+  }
+
+  // Exit focus mode
+  Future<void> _exitFocusMode() async {
+    if (!kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux) &&
+        _inFocusMode) {
+      // Restore original size and position
+      if (_previousWindowSize != null) {
+        await WindowService.setWindowSize(_previousWindowSize!);
+        await WindowService.centerWindow();
+      }
+
+      // Restore original window properties
+      await WindowService.setAlwaysOnTop(false);
+      await WindowService.setResizable(_wasResizableBefore);
+
+      // Reset focus mode flag
+      _inFocusMode = false;
+    }
+
+    setState(() {
+      _displayMode = TimerDisplayMode.normal;
+    });
+    widget.onDisplayModeChanged?.call(_displayMode);
+  }
+
+  // Exit any special modes (called when disposing)
+  Future<void> _exitSpecialModes() async {
+    if (!kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      // Exit fullscreen if needed
+      if (_displayMode == TimerDisplayMode.fullscreen) {
+        await WindowService.windowManager.setFullScreen(false);
+      }
+
+      // Exit focus mode if needed
+      if (_displayMode == TimerDisplayMode.focus) {
+        await _exitFocusMode();
+      }
+
+      // Restore original size and position if we stored it
+      if (_previousWindowSize != null) {
+        await WindowService.setWindowSize(_previousWindowSize!);
+        await WindowService.centerWindow();
+      }
+
+      // Restore original resizable state
+      await WindowService.setResizable(_wasResizableBefore);
+    }
+  }
+
   // Navigate to task selection
   void _navigateToTaskSelection() {
     context.push(Routes.tasks).then((selectedTaskId) {
@@ -203,6 +374,18 @@ class _TimerScreenState extends State<TimerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Use different scaffold based on the display mode
+    if (_displayMode == TimerDisplayMode.fullscreen) {
+      return _buildFullScreenView();
+    } else if (_displayMode == TimerDisplayMode.focus) {
+      return _buildFocusView();
+    } else {
+      return _buildNormalView();
+    }
+  }
+
+  // Build the regular timer view with all UI elements
+  Widget _buildNormalView() {
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
@@ -267,6 +450,41 @@ class _TimerScreenState extends State<TimerScreen> {
                     ],
                   ),
 
+                  // 2. Display mode buttons
+                  const SizedBox(height: AppDimensions.md),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Focus mode button
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.picture_in_picture_alt),
+                        label: const Text('Focus Mode'),
+                        onPressed: _toggleFocusMode,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppDimensions.md),
+                      // Fullscreen button
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.fullscreen),
+                        label: const Text('Full Screen'),
+                        onPressed: _toggleFullScreen,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
                   // Add flexible space to push content toward center
                   const Spacer(),
 
@@ -295,40 +513,197 @@ class _TimerScreenState extends State<TimerScreen> {
           );
         },
       ),
-      // Only show bottom navigation if showNavBar is true
-      bottomNavigationBar: widget.showNavBar
-          ? BottomNavigationBar(
-              showSelectedLabels: false,
-              showUnselectedLabels: false,
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(LucideIcons.timer),
-                  label: '',
+      // Only show bottom navigation if showNavBar is true and display mode is normal
+      bottomNavigationBar:
+          widget.showNavBar && _displayMode == TimerDisplayMode.normal
+              ? BottomNavigationBar(
+                  showSelectedLabels: false,
+                  showUnselectedLabels: false,
+                  items: const [
+                    BottomNavigationBarItem(
+                      icon: Icon(LucideIcons.timer),
+                      label: '',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(LucideIcons.checkCircle),
+                      label: '',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(LucideIcons.settings),
+                      label: '',
+                    ),
+                  ],
+                  onTap: (index) {
+                    switch (index) {
+                      case 0:
+                        // Navigate to timer
+                        context.push(Routes.timer);
+                      case 1:
+                        // Navigate to tasks
+                        context.push(Routes.tasks);
+                      case 2:
+                        // Navigate to settings
+                        context.push(Routes.settings);
+                    }
+                  },
+                )
+              : null,
+    );
+  }
+
+  // Build fullscreen view with minimal UI
+  Widget _buildFullScreenView() {
+    return Scaffold(
+      body: BlocBuilder<TimerBloc, TimerState>(
+        builder: (context, state) {
+          // Determine the status text and color based on state
+          String statusText;
+          Color statusColor;
+
+          if (state.timerMode == TimerMode.focus) {
+            statusText = 'Focus Time';
+            statusColor = Theme.of(context).colorScheme.primary;
+          } else {
+            final isLongBreak =
+                state.pomodorosCompleted % state.config.longBreakInterval == 0;
+            statusText = isLongBreak ? 'Long Break' : 'Short Break';
+            statusColor = Theme.of(context).colorScheme.secondary;
+          }
+
+          return Stack(
+            children: [
+              // Main content
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Task name if available
+                    if (_currentTaskId != null)
+                      FutureBuilder<Task?>(
+                        future: _taskFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.hasData && snapshot.data != null) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 24),
+                              child: Text(
+                                snapshot.data!.title,
+                                style:
+                                    Theme.of(context).textTheme.headlineMedium,
+                                textAlign: TextAlign.center,
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+
+                    // Large timer display
+                    TimerDisplay(
+                      timeRemaining: state.timeRemaining,
+                      progress: state.progress,
+                      statusText: statusText,
+                      progressColor: statusColor,
+                      large: true,
+                    ),
+
+                    const SizedBox(height: 40),
+
+                    // Timer controls
+                    _buildCupertinoTimerControls(context, state),
+                  ],
                 ),
-                BottomNavigationBarItem(
-                  icon: Icon(LucideIcons.checkCircle),
-                  label: '',
+              ),
+
+              // Exit button in top-right corner
+              Positioned(
+                top: 16,
+                right: 16,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.fullscreen_exit),
+                  label: const Text('Exit Full Screen'),
+                  onPressed: _toggleFullScreen,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        Theme.of(context).colorScheme.primaryContainer,
+                    foregroundColor: Theme.of(context).colorScheme.primary,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
                 ),
-                BottomNavigationBarItem(
-                  icon: Icon(LucideIcons.settings),
-                  label: '',
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // Build focus view (small and minimal)
+  Widget _buildFocusView() {
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.background,
+      body: BlocBuilder<TimerBloc, TimerState>(
+        builder: (context, state) {
+          // Determine status text and color
+          String statusText;
+          Color statusColor;
+
+          if (state.timerMode == TimerMode.focus) {
+            statusText = 'Focus';
+            statusColor = Theme.of(context).colorScheme.primary;
+          } else {
+            final isLongBreak =
+                state.pomodorosCompleted % state.config.longBreakInterval == 0;
+            statusText = isLongBreak ? 'Long Break' : 'Break';
+            statusColor = Theme.of(context).colorScheme.secondary;
+          }
+
+          return Stack(
+            children: [
+              // Main content
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Compact timer display
+                    TimerDisplay(
+                      timeRemaining: state.timeRemaining,
+                      progress: state.progress,
+                      statusText: statusText,
+                      progressColor: statusColor,
+                      compact: true,
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Compact timer controls
+                    _buildCompactTimerControls(context, state),
+                  ],
                 ),
-              ],
-              onTap: (index) {
-                switch (index) {
-                  case 0:
-                    // Navigate to timer
-                    context.push(Routes.timer);
-                  case 1:
-                    // Navigate to tasks
-                    context.push(Routes.tasks);
-                  case 2:
-                    // Navigate to settings
-                    context.push(Routes.settings);
-                }
-              },
-            )
-          : null,
+              ),
+
+              // Exit button
+              Positioned(
+                top: 8,
+                right: 8,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.close, size: 16),
+                  label: const Text('Exit', style: TextStyle(fontSize: 12)),
+                  onPressed: _toggleFocusMode,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        Theme.of(context).colorScheme.primaryContainer,
+                    foregroundColor: Theme.of(context).colorScheme.primary,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: const Size(60, 30),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -654,6 +1029,7 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
+  // This builds the regular timer controls
   Widget _buildCupertinoTimerControls(BuildContext context, TimerState state) {
     final primaryColor = Theme.of(context).colorScheme.primary;
     final secondaryColor = Theme.of(context).colorScheme.secondary;
@@ -862,6 +1238,116 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
+  // Compact timer controls for focus mode
+  Widget _buildCompactTimerControls(BuildContext context, TimerState state) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final secondaryColor = Theme.of(context).colorScheme.secondary;
+
+    if (state.status == TimerUIStatus.initial) {
+      return IconButton(
+        icon: const Icon(Icons.play_arrow),
+        onPressed: () => context.read<TimerBloc>().add(const TimerStarted()),
+        iconSize: 36,
+        color: primaryColor,
+      );
+    }
+
+    if (state.status == TimerUIStatus.running) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.pause),
+            onPressed: () => context.read<TimerBloc>().add(const TimerPaused()),
+            iconSize: 28,
+            color: secondaryColor,
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => context.read<TimerBloc>().add(const TimerReset()),
+            iconSize: 28,
+            color: Colors.red,
+          ),
+        ],
+      );
+    }
+
+    if (state.status == TimerUIStatus.paused) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.play_arrow),
+            onPressed: () =>
+                context.read<TimerBloc>().add(const TimerResumed()),
+            iconSize: 28,
+            color: primaryColor,
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => context.read<TimerBloc>().add(const TimerReset()),
+            iconSize: 28,
+            color: Colors.red,
+          ),
+        ],
+      );
+    }
+
+    if (state.status == TimerUIStatus.breakRunning) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.pause),
+            onPressed: () => context.read<TimerBloc>().add(const TimerPaused()),
+            iconSize: 28,
+            color: secondaryColor,
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.skip_next),
+            onPressed: () =>
+                context.read<TimerBloc>().add(const TimerBreakSkipped()),
+            iconSize: 28,
+            color: Colors.orange,
+          ),
+        ],
+      );
+    }
+
+    // For break ready, completed, or other states
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.play_arrow),
+          onPressed: () => state.timerMode == TimerMode.focus
+              ? context.read<TimerBloc>().add(const TimerStarted())
+              : context.read<TimerBloc>().add(const TimerBreakStarted()),
+          iconSize: 28,
+          color: state.timerMode == TimerMode.focus
+              ? primaryColor
+              : secondaryColor,
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          icon: const Icon(Icons.skip_next),
+          onPressed: () => state.timerMode == TimerMode.focus
+              ? context.read<TimerBloc>().add(const TimerBreakStarted())
+              : context.read<TimerBloc>().add(const TimerBreakSkipped()),
+          iconSize: 28,
+          color: Colors.orange,
+        ),
+      ],
+    );
+  }
+
   Widget _buildStatCard(
     BuildContext context,
     String label,
@@ -870,13 +1356,6 @@ class _TimerScreenState extends State<TimerScreen> {
   ) {
     return Container(
       padding: const EdgeInsets.all(AppDimensions.md),
-      // decoration: BoxDecoration(
-      //   color: Theme.of(context).colorScheme.surface,
-      //   borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-      //   border: Border.all(
-      //     color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
-      //   ),
-      // ),
       child: Row(
         children: [
           Row(
