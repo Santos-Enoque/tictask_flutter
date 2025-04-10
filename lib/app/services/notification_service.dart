@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:html' as html;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_local_notifications_linux/flutter_local_notifications_linux.dart';
@@ -43,8 +44,16 @@ class NotificationService {
       // Load notification preferences
       await _loadPreferences();
 
-      // Initialize platform-specific implementation
-      if (Platform.isLinux) {
+      if (kIsWeb) {
+        // Request permission for web notifications
+        if (html.Notification.supported) {
+          final permission = await html.Notification.requestPermission();
+          _initialized = permission == 'granted';
+          debugPrint('Web notifications permission: $permission');
+        } else {
+          debugPrint('Web notifications not supported in this browser');
+        }
+      } else if (Platform.isLinux) {
         LinuxInitializationSettings initializationSettingsLinux =
             LinuxInitializationSettings(
           defaultActionName: 'Open TicTask',
@@ -110,8 +119,14 @@ class NotificationService {
     if (!_initialized || !_notificationsEnabled) return;
 
     try {
-      // For Linux
-      if (Platform.isLinux) {
+      if (kIsWeb) {
+        if (html.Notification.supported) {
+          html.Notification(
+            title,
+            body: body,
+          );
+        }
+      } else if (Platform.isLinux) {
         final LinuxNotificationDetails linuxDetails = LinuxNotificationDetails(
           urgency: LinuxNotificationUrgency.normal,
           category: LinuxNotificationCategory.device,
@@ -147,8 +162,14 @@ class NotificationService {
     if (!_initialized || !_notificationsEnabled) return;
 
     try {
-      // For Linux
-      if (Platform.isLinux) {
+      if (kIsWeb) {
+        if (html.Notification.supported) {
+          html.Notification(
+            title,
+            body: body,
+          );
+        }
+      } else if (Platform.isLinux) {
         final LinuxNotificationDetails linuxDetails = LinuxNotificationDetails(
           urgency: LinuxNotificationUrgency.normal,
           category: LinuxNotificationCategory.device,
@@ -181,8 +202,23 @@ class NotificationService {
     if (!_initialized || !_notificationsEnabled) return;
 
     try {
-      // For Linux
-      if (Platform.isLinux) {
+      if (kIsWeb) {
+        final now = DateTime.now();
+        final delay = reminderTime.difference(now);
+
+        if (delay.isNegative) {
+          return;
+        }
+
+        Future.delayed(delay, () {
+          if (html.Notification.supported) {
+            html.Notification(
+              'Task Reminder',
+              body: 'Time to work on: $taskTitle',
+            );
+          }
+        });
+      } else if (Platform.isLinux) {
         final LinuxNotificationDetails linuxDetails = LinuxNotificationDetails(
           urgency: LinuxNotificationUrgency.normal,
           category: LinuxNotificationCategory.device,
