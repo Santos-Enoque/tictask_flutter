@@ -2,6 +2,7 @@ import 'package:get_it/get_it.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/app/services/auth_service.dart';
+import 'package:tictask/app/services/notification_service.dart';
 import 'package:tictask/app/services/sync_service.dart';
 import 'package:tictask/features/projects/bloc/project_bloc.dart';
 import 'package:tictask/features/projects/models/project.dart';
@@ -25,40 +26,46 @@ Future<void> init() async {
 
   // Register auth service first
   sl.registerLazySingleton<AuthService>(AuthService.new);
-  
+
+  // Register notification service
+  sl.registerLazySingleton<NotificationService>(() => NotificationService());
+
   // Initialize repositories
   // IMPORTANT: We need to await the initialization of repositories before registering them
-  
+
   // Timer repository
   final timerRepository = TimerRepository();
   await timerRepository.init();
   sl.registerLazySingleton<TimerRepository>(() => timerRepository);
-  
+
   // Syncable timer repository
   final syncableTimerRepository = SyncableTimerRepository(sl());
   await syncableTimerRepository.init();
-  sl.registerLazySingleton<SyncableTimerRepository>(() => syncableTimerRepository);
+  sl.registerLazySingleton<SyncableTimerRepository>(
+      () => syncableTimerRepository);
 
   // Task repository
   final taskRepository = TaskRepository();
   await taskRepository.init();
   sl.registerLazySingleton<TaskRepository>(() => taskRepository);
-  
+
   // Syncable task repository
   final syncableTaskRepository = SyncableTaskRepository(sl());
   await syncableTaskRepository.init();
-  sl.registerLazySingleton<SyncableTaskRepository>(() => syncableTaskRepository);
-  
+  sl.registerLazySingleton<SyncableTaskRepository>(
+      () => syncableTaskRepository);
+
   // Project repository
   final projectRepository = ProjectRepository();
   await projectRepository.init();
   sl.registerLazySingleton<ProjectRepository>(() => projectRepository);
-  
+
   // Syncable project repository
   final syncableProjectRepository = SyncableProjectRepository(sl());
   await syncableProjectRepository.init();
-  sl.registerLazySingleton<SyncableProjectRepository>(() => syncableProjectRepository);
-  
+  sl.registerLazySingleton<SyncableProjectRepository>(
+      () => syncableProjectRepository);
+
   // Settings repository
   final settingsRepository = SettingsRepository();
   await settingsRepository.init();
@@ -68,9 +75,15 @@ Future<void> init() async {
   sl.registerLazySingleton<SyncService>(() => SyncService(sl()));
 
   // Register BLoCs
-  sl.registerFactory<TimerBloc>(() => TimerBloc(timerRepository: sl()));
-  sl.registerFactory(() => TaskBloc(taskRepository: sl<SyncableTaskRepository>()));
-  sl.registerFactory(() => ProjectBloc(projectRepository: sl<SyncableProjectRepository>()));
+  sl.registerFactory<TimerBloc>(() => TimerBloc(
+        timerRepository: sl(),
+        notificationService: sl(),
+        taskRepository: sl(),
+      ));
+  sl.registerFactory(
+      () => TaskBloc(taskRepository: sl<SyncableTaskRepository>()));
+  sl.registerFactory(
+      () => ProjectBloc(projectRepository: sl<SyncableProjectRepository>()));
 }
 
 // Register all Hive adapters

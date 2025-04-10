@@ -2,19 +2,27 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:tictask/app/services/notification_service.dart';
+import 'package:tictask/features/tasks/repositories/task_repository.dart';
 import 'package:tictask/features/timer/models/models.dart';
 import 'package:tictask/features/timer/repositories/timer_repository.dart';
 
 part 'timer_event.dart';
 part 'timer_state.dart';
 
-
 class TimerBloc extends Bloc<TimerEvent, TimerState> {
   final TimerRepository _timerRepository;
+  final NotificationService _notificationService;
+  final TaskRepository? _taskRepository;
   Timer? _timer;
 
-  TimerBloc({required TimerRepository timerRepository})
-      : _timerRepository = timerRepository,
+  TimerBloc({
+    required TimerRepository timerRepository,
+    required NotificationService notificationService,
+    TaskRepository? taskRepository,
+  })  : _timerRepository = timerRepository,
+        _notificationService = notificationService,
+        _taskRepository = taskRepository,
         super(const TimerState()) {
     on<TimerInitialized>(_onTimerInitialized);
     on<TimerStarted>(_onTimerStarted);
@@ -33,12 +41,13 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
     try {
       // Load timer config
       final config = await _timerRepository.getTimerConfig();
-      
+
       // Load timer state
       final timerModel = await _timerRepository.getTimerState();
-      
+
       // Get today's pomodoros count
-      final todaysPomodoros = await _timerRepository.getCompletedPomodoroCountToday();
+      final todaysPomodoros =
+          await _timerRepository.getCompletedPomodoroCountToday();
 
       // Calculate timer duration and status
       final newState = TimerState.fromModel(
@@ -46,9 +55,9 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
         config: config,
         todaysPomodoros: todaysPomodoros,
       );
-      
+
       emit(newState);
-      
+
       // If timer was running (app restart scenario), resume it
       if (timerModel.status == TimerStatus.running) {
         add(const TimerResumed());
@@ -61,19 +70,19 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
 
   Future<void> _onTimerStarted(
       TimerStarted event, Emitter<TimerState> emit) async {
-    if (state.status == TimerUIStatus.initial || 
+    if (state.status == TimerUIStatus.initial ||
         state.status == TimerUIStatus.paused) {
       // Update task association if provided
       final taskId = event.taskId ?? state.currentTaskId;
 
       // Update timer state in repository
-      TimerStateModel timerModel = (await _timerRepository.getTimerState())
-          .copyWith(
-            status: TimerStatus.running,
-            currentTaskId: taskId,
-            lastUpdateTime: DateTime.now().millisecondsSinceEpoch,
-          );
-      
+      TimerStateModel timerModel =
+          (await _timerRepository.getTimerState()).copyWith(
+        status: TimerStatus.running,
+        currentTaskId: taskId,
+        lastUpdateTime: DateTime.now().millisecondsSinceEpoch,
+      );
+
       await _timerRepository.updateTimerState(timerModel);
 
       // Start the timer
@@ -95,11 +104,11 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
     if (state.status == TimerUIStatus.running ||
         state.status == TimerUIStatus.breakRunning) {
       _timer?.cancel();
-      
+
       // Update timer state in repository
       final timerModel = (await _timerRepository.getTimerState())
           .copyWith(status: TimerStatus.paused);
-      
+
       await _timerRepository.updateTimerState(timerModel);
 
       emit(state.copyWith(status: TimerUIStatus.paused));
@@ -110,12 +119,11 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
       TimerResumed event, Emitter<TimerState> emit) async {
     if (state.status == TimerUIStatus.paused) {
       // Update timer state in repository
-      final timerModel = (await _timerRepository.getTimerState())
-          .copyWith(
-            status: TimerStatus.running,
-            lastUpdateTime: DateTime.now().millisecondsSinceEpoch,
-          );
-      
+      final timerModel = (await _timerRepository.getTimerState()).copyWith(
+        status: TimerStatus.running,
+        lastUpdateTime: DateTime.now().millisecondsSinceEpoch,
+      );
+
       await _timerRepository.updateTimerState(timerModel);
 
       // Start the timer
@@ -128,35 +136,34 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
       final newStatus = state.timerMode == TimerMode.focus
           ? TimerUIStatus.running
           : TimerUIStatus.breakRunning;
-      
+
       emit(state.copyWith(status: newStatus));
     }
   }
 
-  Future<void> _onTimerReset(
-      TimerReset event, Emitter<TimerState> emit) async {
+  Future<void> _onTimerReset(TimerReset event, Emitter<TimerState> emit) async {
     _timer?.cancel();
-    
+
     // Reset to initial state with focus timer duration
     int resetDuration;
-    
+
     if (state.timerMode == TimerMode.focus) {
       resetDuration = state.config.pomoDuration;
     } else {
       // If in break mode, determine which break type
-      resetDuration = (state.pomodorosCompleted % state.config.longBreakInterval == 0)
-          ? state.config.longBreakDuration
-          : state.config.shortBreakDuration;
+      resetDuration =
+          (state.pomodorosCompleted % state.config.longBreakInterval == 0)
+              ? state.config.longBreakDuration
+              : state.config.shortBreakDuration;
     }
 
     // Update timer state in repository
-    final timerModel = (await _timerRepository.getTimerState())
-        .copyWith(
-          status: TimerStatus.idle,
-          timeRemaining: resetDuration,
-          currentTaskId: null,
-        );
-    
+    final timerModel = (await _timerRepository.getTimerState()).copyWith(
+      status: TimerStatus.idle,
+      timeRemaining: resetDuration,
+      currentTaskId: null,
+    );
+
     await _timerRepository.updateTimerState(timerModel);
 
     emit(state.copyWith(
@@ -176,19 +183,18 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
           : state.pomodorosCompleted % state.config.longBreakInterval == 0
               ? state.config.longBreakDuration
               : state.config.shortBreakDuration;
-              
+
       final progress = TimerState.calculateProgress(
         timeRemaining: event.duration,
         totalDuration: totalDuration,
       );
-      
+
       // Update timer state in repository
-      final timerModel = (await _timerRepository.getTimerState())
-          .copyWith(
-            timeRemaining: event.duration,
-            lastUpdateTime: DateTime.now().millisecondsSinceEpoch,
-          );
-      
+      final timerModel = (await _timerRepository.getTimerState()).copyWith(
+        timeRemaining: event.duration,
+        lastUpdateTime: DateTime.now().millisecondsSinceEpoch,
+      );
+
       await _timerRepository.updateTimerState(timerModel);
 
       emit(state.copyWith(
@@ -204,7 +210,7 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
   Future<void> _onTimerConfigChanged(
       TimerConfigChanged event, Emitter<TimerState> emit) async {
     await _timerRepository.saveTimerConfig(event.config);
-    
+
     // If timer is idle, update the remaining time to match new duration
     if (state.status == TimerUIStatus.initial) {
       // Determine which duration to use based on timer mode
@@ -213,15 +219,16 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
         newDuration = event.config.pomoDuration;
       } else {
         // If in break mode, determine which break type
-        newDuration = state.pomodorosCompleted % event.config.longBreakInterval == 0
-            ? event.config.longBreakDuration
-            : event.config.shortBreakDuration;
+        newDuration =
+            state.pomodorosCompleted % event.config.longBreakInterval == 0
+                ? event.config.longBreakDuration
+                : event.config.shortBreakDuration;
       }
-      
+
       // Update timer state in repository
       final timerModel = (await _timerRepository.getTimerState())
           .copyWith(timeRemaining: newDuration);
-      
+
       await _timerRepository.updateTimerState(timerModel);
 
       emit(state.copyWith(
@@ -248,17 +255,17 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
       // Calculate remaining time as a percentage and apply to new duration
       final remainingPercentage = state.timeRemaining / oldDuration;
       final adjustedTimeRemaining = (remainingPercentage * newDuration).round();
-      
+
       // Calculate new progress
       final progress = TimerState.calculateProgress(
         timeRemaining: adjustedTimeRemaining,
         totalDuration: newDuration,
       );
-      
+
       // Update timer state in repository
       final timerModel = (await _timerRepository.getTimerState())
           .copyWith(timeRemaining: adjustedTimeRemaining);
-      
+
       await _timerRepository.updateTimerState(timerModel);
 
       emit(state.copyWith(
@@ -278,16 +285,29 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
         const Duration(seconds: 1),
         (timer) => add(TimerTicked(duration: state.timeRemaining - 1)),
       );
-      
+
       // Update timer state in repository
-      final timerModel = (await _timerRepository.getTimerState())
-          .copyWith(
-            status: TimerStatus.running,
-            timerMode: TimerMode.break_,
-            lastUpdateTime: DateTime.now().millisecondsSinceEpoch,
-          );
-      
+      final timerModel = (await _timerRepository.getTimerState()).copyWith(
+        status: TimerStatus.running,
+        timerMode: TimerMode.break_,
+        lastUpdateTime: DateTime.now().millisecondsSinceEpoch,
+      );
+
       await _timerRepository.updateTimerState(timerModel);
+
+      // Notify break started
+      final isLongBreak =
+          state.pomodorosCompleted % state.config.longBreakInterval == 0;
+      final breakType = isLongBreak ? 'Long Break' : 'Short Break';
+      final breakDuration = isLongBreak
+          ? state.config.longBreakDuration
+          : state.config.shortBreakDuration;
+
+      await _notificationService.showBreakNotification(
+        title: '$breakType Started',
+        body: 'Time for a $breakDuration second break!',
+        isBreakStart: true,
+      );
 
       emit(state.copyWith(
         status: TimerUIStatus.breakRunning,
@@ -301,17 +321,19 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
     if (state.status == TimerUIStatus.breakReady ||
         state.status == TimerUIStatus.breakRunning) {
       _timer?.cancel();
-      
+
       // Update timer state in repository
-      final timerModel = (await _timerRepository.getTimerState())
-          .copyWith(
-            status: TimerStatus.idle,
-            timeRemaining: state.config.pomoDuration,
-            timerMode: TimerMode.focus,
-            currentTaskId: null,
-          );
-      
+      final timerModel = (await _timerRepository.getTimerState()).copyWith(
+        status: TimerStatus.idle,
+        timeRemaining: state.config.pomoDuration,
+        timerMode: TimerMode.focus,
+        currentTaskId: null,
+      );
+
       await _timerRepository.updateTimerState(timerModel);
+
+      // Cancel any break notifications
+      await _notificationService.cancelAllNotifications();
 
       emit(state.copyWith(
         status: TimerUIStatus.initial,
@@ -326,42 +348,64 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
   Future<void> _onTimerCompleted(
       TimerCompleted event, Emitter<TimerState> emit) async {
     _timer?.cancel();
-    
+
     // Handle timer completion based on mode
     if (state.timerMode == TimerMode.focus) {
       // Complete focus session
       final pomodorosCompleted = state.pomodorosCompleted + 1;
-      
+
       // Save the completed session
       final session = TimerSession.completed(
-        startTime: DateTime.now().millisecondsSinceEpoch - state.config.pomoDuration * 1000,
+        startTime: DateTime.now().millisecondsSinceEpoch -
+            state.config.pomoDuration * 1000,
         endTime: DateTime.now().millisecondsSinceEpoch,
         duration: state.config.pomoDuration,
         type: SessionType.pomodoro,
         taskId: state.currentTaskId,
       );
-      
+
       await _timerRepository.saveSession(session);
-      
+
       // Calculate break duration
-      final isLongBreak = pomodorosCompleted % state.config.longBreakInterval == 0;
+      final isLongBreak =
+          pomodorosCompleted % state.config.longBreakInterval == 0;
       final breakDuration = isLongBreak
           ? state.config.longBreakDuration
           : state.config.shortBreakDuration;
-      
+
       // Update timer state in repository for break
-      final timerModel = (await _timerRepository.getTimerState())
-          .copyWith(
-            status: TimerStatus.break_,
-            timeRemaining: breakDuration,
-            pomodorosCompleted: pomodorosCompleted,
-            timerMode: TimerMode.break_,
-          );
-      
+      final timerModel = (await _timerRepository.getTimerState()).copyWith(
+        status: TimerStatus.break_,
+        timeRemaining: breakDuration,
+        pomodorosCompleted: pomodorosCompleted,
+        timerMode: TimerMode.break_,
+      );
+
       await _timerRepository.updateTimerState(timerModel);
-      
+
       // Get updated today's pomodoros
-      final todaysPomodoros = await _timerRepository.getCompletedPomodoroCountToday();
+      final todaysPomodoros =
+          await _timerRepository.getCompletedPomodoroCountToday();
+
+      // Show pomodoro completion notification
+      String taskName = "your task";
+      if (state.currentTaskId != null && _taskRepository != null) {
+        try {
+          final task = await _taskRepository!.getTaskById(state.currentTaskId!);
+          if (task != null) {
+            taskName = task.title;
+          }
+        } catch (e) {
+          // Fallback to generic task name
+        }
+      }
+
+      await _notificationService.showTimerCompletedNotification(
+        title: 'Pomodoro Completed!',
+        body:
+            'You\'ve completed a pomodoro session${state.currentTaskId != null ? ' for $taskName' : ''}.',
+        payload: 'pomodoro_completed',
+      );
 
       emit(state.copyWith(
         status: TimerUIStatus.breakReady,
@@ -373,29 +417,41 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
       ));
     } else {
       // Complete break session
-      final isLongBreak = state.pomodorosCompleted % state.config.longBreakInterval == 0;
-      
+      final isLongBreak =
+          state.pomodorosCompleted % state.config.longBreakInterval == 0;
+
       // Save break session
       final session = TimerSession.completed(
-        startTime: DateTime.now().millisecondsSinceEpoch - 
-            (isLongBreak ? state.config.longBreakDuration : state.config.shortBreakDuration) * 1000,
+        startTime: DateTime.now().millisecondsSinceEpoch -
+            (isLongBreak
+                    ? state.config.longBreakDuration
+                    : state.config.shortBreakDuration) *
+                1000,
         endTime: DateTime.now().millisecondsSinceEpoch,
-        duration: isLongBreak ? state.config.longBreakDuration : state.config.shortBreakDuration,
+        duration: isLongBreak
+            ? state.config.longBreakDuration
+            : state.config.shortBreakDuration,
         type: isLongBreak ? SessionType.longBreak : SessionType.shortBreak,
         taskId: null,
       );
-      
+
       await _timerRepository.saveSession(session);
-      
+
+      // Show break completed notification
+      await _notificationService.showBreakNotification(
+        title: 'Break Completed',
+        body: 'Time to get back to work! Ready for your next pomodoro?',
+        isBreakStart: false,
+      );
+
       // Reset to focus timer
-      final timerModel = (await _timerRepository.getTimerState())
-          .copyWith(
-            status: TimerStatus.idle,
-            timeRemaining: state.config.pomoDuration,
-            timerMode: TimerMode.focus,
-            currentTaskId: null,
-          );
-      
+      final timerModel = (await _timerRepository.getTimerState()).copyWith(
+        status: TimerStatus.idle,
+        timeRemaining: state.config.pomoDuration,
+        timerMode: TimerMode.focus,
+        currentTaskId: null,
+      );
+
       await _timerRepository.updateTimerState(timerModel);
 
       emit(state.copyWith(

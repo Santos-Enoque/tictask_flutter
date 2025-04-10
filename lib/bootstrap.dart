@@ -5,7 +5,9 @@ import 'package:bloc/bloc.dart';
 import 'package:flutter/widgets.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tictask/app/constants/app_constants.dart';
 import 'package:tictask/app/services/init_supabase.dart';
+import 'package:tictask/app/services/notification_service.dart';
 import 'package:tictask/app/services/window_service.dart';
 import 'package:tictask/core/utils/logger.dart';
 import 'package:tictask/injection_container.dart' as di;
@@ -48,6 +50,9 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
   // Initialize Hive
   await _initializeHive();
 
+  // Initialize notification service
+  await NotificationService().initialize();
+
   // Initialize dependency injection - this must be after Hive and Supabase
   await di.init();
 
@@ -70,6 +75,7 @@ Future<void> _initializeHive() async {
 
     // TEMPORARY FIX: Clear all boxes to resolve the type mismatch issue
     // Delete this after the first successful run
+    // await Hive.deleteBoxFromDisk(AppConstants.settingsBox);
     // await Hive.deleteBoxFromDisk('tasks');
     // await Hive.deleteBoxFromDisk('timer_settings');
     // await Hive.deleteBoxFromDisk('user_settings');

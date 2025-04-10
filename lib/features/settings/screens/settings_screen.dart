@@ -26,12 +26,12 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final AuthService _authService = sl<AuthService>();
   final SyncService _syncService = sl<SyncService>();
-  
+
   bool _syncEnabled = true;
   bool _notificationsEnabled = true;
   bool _soundsEnabled = true;
   bool _vibrationEnabled = true;
-  
+
   @override
   void initState() {
     super.initState();
@@ -42,7 +42,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _syncEnabled = prefs.getBool('sync_enabled') ?? true;
-      _notificationsEnabled = prefs.getBool(AppConstants.notificationsEnabledPrefKey) ?? true;
+      _notificationsEnabled =
+          prefs.getBool(AppConstants.notificationsEnabledPrefKey) ?? true;
       _soundsEnabled = prefs.getBool('sounds_enabled') ?? true;
       _vibrationEnabled = prefs.getBool('vibration_enabled') ?? true;
     });
@@ -51,7 +52,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('sync_enabled', _syncEnabled);
-    await prefs.setBool(AppConstants.notificationsEnabledPrefKey, _notificationsEnabled);
+    await prefs.setBool(
+        AppConstants.notificationsEnabledPrefKey, _notificationsEnabled);
     await prefs.setBool('sounds_enabled', _soundsEnabled);
     await prefs.setBool('vibration_enabled', _vibrationEnabled);
   }
@@ -112,7 +114,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Divider(),
 
           // Window Settings (Desktop only)
-          if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) ...[
+          if (!kIsWeb &&
+              (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) ...[
             _buildSectionHeader('Window'),
             ListTile(
               title: const Text('Window Settings'),
@@ -186,10 +189,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _syncEnabled = value;
                     });
                     await _saveSettings();
-                    
+
                     // Update sync service
                     _syncService.restartBackgroundSync();
-                    
+
                     // Force sync if enabled
                     if (value) {
                       _syncService.syncAll();
@@ -211,10 +214,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       duration: Duration(seconds: 1),
                     ),
                   );
-                  
+
                   // Perform sync
                   final success = await _syncService.syncAll();
-                  
+
                   // Show result
                   if (success) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -231,7 +234,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     );
                   }
-                  
+
                   // Refresh UI to show updated last sync time
                   setState(() {});
                 },
@@ -277,7 +280,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                     ),
                   );
-                  
+
                   if (confirmed == true) {
                     await _authService.signOut();
                     setState(() {});
@@ -350,7 +353,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                 );
-                
+
                 if (confirmed == true) {
                   // Clear all data
                   // Show loading indicator
@@ -423,16 +426,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return 'Dark mode';
     }
   }
-  
+
   String _getLastSyncTimeText() {
     final lastSyncTime = _syncService.lastSyncTime;
     if (lastSyncTime == null) {
       return 'Never';
     }
-    
+
     final now = DateTime.now();
     final difference = now.difference(lastSyncTime);
-    
+
     if (difference.inMinutes < 1) {
       return 'Just now';
     } else if (difference.inHours < 1) {

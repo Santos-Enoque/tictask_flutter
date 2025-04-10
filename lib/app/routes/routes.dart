@@ -6,11 +6,12 @@ class Routes {
   static const String settings = '/settings';
   static const String calendar = '/calendar';
   static const String notFound = '/404';
-  
+
   // Authentication routes
   static const String auth = '/auth';
   static const String login = '/auth/login';
   static const String register = '/auth/register';
-    // Settings sub-routes
+  // Settings sub-routes
   static const String windowSettings = '/settings/window';
+  static const String timerSettings = '/settings/timer';
 }
