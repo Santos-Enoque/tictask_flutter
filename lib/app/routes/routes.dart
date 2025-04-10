@@ -14,4 +14,11 @@ class Routes {
   // Settings sub-routes
   static const String windowSettings = '/settings/window';
   static const String timerSettings = '/settings/timer';
+    static const String calendarSettings = '/settings/calendar'; // Add this line
+
+  // Task-specific routes
+  static const String timerWithTask = '/timer/task/:taskId';
+  
+  // Helper method to build task timer route
+  static String timerWithTaskPath(String taskId) => '/timer/task/$taskId';
 }

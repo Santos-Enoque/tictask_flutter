@@ -164,7 +164,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           const Divider(),
-
+          _buildSectionHeader('Calendar Integration'),
+          ListTile(
+            title: const Text('Google Calendar'),
+            subtitle: const Text('Configure calendar integration and sync'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              context.push(Routes.calendarSettings);
+            },
+          ),
+          const Divider(),
           // Timer Settings
           _buildSectionHeader('Timer Settings'),
           ListTile(

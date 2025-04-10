@@ -45,6 +45,10 @@ dev_dependencies:
   mocktail: ^1.0.4
   very_good_analysis: ^6.0.0
   window_manager: ^0.4.3
+  google_sign_in: ^6.1.6
+  googleapis: ^12.0.0
+  googleapis_auth: ^1.4.1
+  http: ^1.1.0
 flutter:
   uses-material-design: true
   generate: true

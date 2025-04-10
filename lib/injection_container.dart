@@ -4,6 +4,10 @@ import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/app/services/auth_service.dart';
 import 'package:tictask/app/services/notification_service.dart';
 import 'package:tictask/app/services/sync_service.dart';
+import 'package:tictask/features/google_calendar/repositories/google_calendar_task_repository.dart';
+import 'package:tictask/features/google_calendar/services/google_auth_service.dart';
+import 'package:tictask/features/google_calendar/services/google_calendar_service.dart';
+import 'package:tictask/features/google_calendar/services/task_sync_service.dart';
 import 'package:tictask/features/projects/bloc/project_bloc.dart';
 import 'package:tictask/features/projects/models/project.dart';
 import 'package:tictask/features/projects/repositories/project_repository.dart';
@@ -24,7 +28,7 @@ Future<void> init() async {
   // Ensure Hive adapters are registered
   await _registerHiveAdapters();
 
-  // Register auth service first
+  // Register app auth service first
   sl.registerLazySingleton<AuthService>(AuthService.new);
 
   // Register notification service
@@ -84,6 +88,9 @@ Future<void> init() async {
       () => TaskBloc(taskRepository: sl<SyncableTaskRepository>()));
   sl.registerFactory(
       () => ProjectBloc(projectRepository: sl<SyncableProjectRepository>()));
+      
+  // Initialize and register Google Calendar services
+  await _registerGoogleCalendarServices();
 }
 
 // Register all Hive adapters
@@ -136,5 +143,47 @@ Future<void> _registerHiveAdapters() async {
   } catch (e) {
     print('Error registering Hive adapters: $e');
     // Continue anyway, as the repositories will try to register adapters again
+  }
+}
+
+// Register Google Calendar services
+Future<void> _registerGoogleCalendarServices() async {
+  try {
+    // Google auth service (different from app auth service)
+    final googleAuthService = GoogleAuthService();
+    await googleAuthService.init();
+    sl.registerSingleton<GoogleAuthService>(googleAuthService);
+    
+    // Google Calendar service
+    final googleCalendarService = GoogleCalendarService(googleAuthService);
+    await googleCalendarService.init();
+    sl.registerSingleton<GoogleCalendarService>(googleCalendarService);
+    
+    // Get the syncable task repository that's already registered
+    final taskRepository = sl<SyncableTaskRepository>();
+    
+    // Create the task sync service
+    final taskSyncService = TaskSyncService(
+      googleAuthService,
+      googleCalendarService,
+      taskRepository,
+    );
+    await taskSyncService.init();
+    sl.registerSingleton<TaskSyncService>(taskSyncService);
+    
+    // Register the decorated task repository for Google Calendar integration
+    final googleCalendarTaskRepository = GoogleCalendarTaskRepository(
+      taskRepository,
+      taskSyncService,
+    );
+    
+    // Re-register TaskBloc to use the Google Calendar task repository
+    sl.unregister<TaskBloc>();
+    sl.registerFactory(() => TaskBloc(taskRepository: googleCalendarTaskRepository));
+    
+    print('Google Calendar services registered successfully');
+  } catch (e) {
+    print('Error registering Google Calendar services: $e');
+    // Don't let Google Calendar integration failure crash the app
   }
 }
