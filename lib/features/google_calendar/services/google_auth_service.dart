@@ -13,6 +13,7 @@ class GoogleAuthService {
   
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: _scopes,
+    clientId: '1059141423405-s7s16rnjdpd98uvidvb5fa83amlj52pt.apps.googleusercontent.com'
   );
   
   GoogleSignInAccount? _currentUser;
