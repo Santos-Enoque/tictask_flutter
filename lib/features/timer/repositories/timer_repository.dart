@@ -1,4 +1,5 @@
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tictask/app/constants/app_constants.dart';
 import 'package:tictask/core/utils/logger.dart';
 import 'package:tictask/features/timer/models/models.dart';
@@ -120,8 +121,30 @@ Future<TimerConfig> getTimerConfig() async {
 
   // Timer session methods
   Future<void> saveSession(TimerSession session) async {
-    await _sessionsBox.put(session.id, session);
+     AppLogger.i('Saving timer session: ${session.id}');
+  
+  // Save locally
+  await _sessionsBox.put(session.id, session);
+
+  // Mark for sync - add debug logging
+  await _markRecordForSync(session.id);
   }
+
+  // Update the _markRecordForSync method to add logging
+Future<void> _markRecordForSync(String id) async {
+  final prefs = await SharedPreferences.getInstance();
+  final pendingSyncIds = prefs.getStringList('pending_timer_session_sync_ids') ?? [];
+
+  AppLogger.i('Marking session for sync: $id (current pending count: ${pendingSyncIds.length})');
+
+  if (!pendingSyncIds.contains(id)) {
+    pendingSyncIds.add(id);
+    await prefs.setStringList('pending_timer_session_sync_ids', pendingSyncIds);
+    AppLogger.i('Session marked for sync successfully, new pending count: ${pendingSyncIds.length}');
+  } else {
+    AppLogger.i('Session already marked for sync, skipping');
+  }
+}
 
   Future<List<TimerSession>> getSessionsByDateRange(
     DateTime startDate,
