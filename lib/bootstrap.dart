@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tictask/app/services/init_supabase.dart';
+import 'package:tictask/app/services/window_service.dart';
 import 'package:tictask/core/utils/logger.dart';
 import 'package:tictask/injection_container.dart' as di;
 
@@ -34,6 +35,9 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
   
   // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize window settings for desktop platforms
+  await WindowService.initWindow();
   
   // Initialize SharedPreferences first (needed for sync settings)
   await SharedPreferences.getInstance();

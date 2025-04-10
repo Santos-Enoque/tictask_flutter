@@ -40,7 +40,7 @@ dev_dependencies:
   hive_generator: ^2.0.1
   mocktail: ^1.0.4
   very_good_analysis: ^6.0.0
-
+  window_manager: ^0.4.3
 flutter:
   uses-material-design: true
   generate: true

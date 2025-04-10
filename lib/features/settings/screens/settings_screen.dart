@@ -1,20 +1,21 @@
-import 'package:flutter/cupertino.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tictask/app/constants/app_constants.dart';
+import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/app/routes/routes.dart';
 import 'package:tictask/app/services/auth_service.dart';
 import 'package:tictask/app/services/sync_service.dart';
 import 'package:tictask/app/theme/app_theme.dart';
-import 'package:tictask/features/timer/bloc/timer_bloc.dart';
-import 'package:tictask/features/timer/models/timer_config.dart';
-import 'package:tictask/features/timer/repositories/timer_repository.dart';
+import 'package:tictask/app/theme/dimensions.dart';
+import 'package:tictask/app/theme/text_styles.dart';
 import 'package:tictask/injection_container.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, this.showNavBar = true});
+  const SettingsScreen({Key? key, this.showNavBar = true}) : super(key: key);
 
   final bool showNavBar;
 
@@ -23,121 +24,36 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final TimerRepository _timerRepository = sl<TimerRepository>();
   final AuthService _authService = sl<AuthService>();
   final SyncService _syncService = sl<SyncService>();
   
-  late Future<TimerConfig> _timerConfigFuture;
-  bool _isSyncing = false;
-  String? _syncStatusMessage;
   bool _syncEnabled = true;
-
+  bool _notificationsEnabled = true;
+  bool _soundsEnabled = true;
+  bool _vibrationEnabled = true;
+  
   @override
   void initState() {
     super.initState();
-    _timerConfigFuture = _timerRepository.getTimerConfig();
-    _loadSyncSettings();
-    
-    // Listen to sync status changes
-    _syncService.syncStatusStream.listen((status) {
-      if (mounted) {
-        setState(() {
-          _isSyncing = status == SyncStatus.syncing;
-          switch (status) {
-            case SyncStatus.completed:
-              _syncStatusMessage = 'Last sync: just now';
-              break;
-            case SyncStatus.failed:
-              _syncStatusMessage = 'Sync failed. Try again.';
-              break;
-            case SyncStatus.offline:
-              _syncStatusMessage = 'You are offline';
-              break;
-            default:
-              _syncStatusMessage = _syncService.lastSyncTime != null
-                  ? 'Last sync: ${_formatLastSyncTime(_syncService.lastSyncTime!)}'
-                  : 'Not synced yet';
-          }
-        });
-      }
-    });
+    _loadSettings();
   }
-  
-  Future<void> _loadSyncSettings() async {
+
+  Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _syncEnabled = prefs.getBool('sync_enabled') ?? true;
-      _isSyncing = _syncService.status == SyncStatus.syncing;
-      
-      // Set initial sync status message
-      if (_syncService.lastSyncTime != null) {
-        _syncStatusMessage = 'Last sync: ${_formatLastSyncTime(_syncService.lastSyncTime!)}';
-      } else {
-        _syncStatusMessage = 'Not synced yet';
-      }
+      _notificationsEnabled = prefs.getBool(AppConstants.notificationsEnabledPrefKey) ?? true;
+      _soundsEnabled = prefs.getBool('sounds_enabled') ?? true;
+      _vibrationEnabled = prefs.getBool('vibration_enabled') ?? true;
     });
   }
-  
-  String _formatLastSyncTime(DateTime time) {
-    final now = DateTime.now();
-    final difference = now.difference(time);
-    
-    if (difference.inMinutes < 1) {
-      return 'just now';
-    } else if (difference.inHours < 1) {
-      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
-    } else if (difference.inDays < 1) {
-      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
-    } else if (difference.inDays < 30) {
-      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
-    } else {
-      return '${DateFormat('MMM d, yyyy').format(time)}';
-    }
-  }
-  
-  Future<void> _syncNow() async {
-    if (_isSyncing) return;
-    
-    setState(() {
-      _isSyncing = true;
-      _syncStatusMessage = 'Syncing...';
-    });
-    
-    try {
-      final success = await _syncService.syncAll();
-      
-      setState(() {
-        _isSyncing = false;
-        if (success) {
-          _syncStatusMessage = 'Last sync: just now';
-        } else {
-          _syncStatusMessage = 'Sync failed. Try again.';
-        }
-      });
-    } catch (e) {
-      setState(() {
-        _isSyncing = false;
-        _syncStatusMessage = 'Sync failed. Try again.';
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sync error: $e')),
-      );
-    }
-  }
-  
-  Future<void> _toggleSyncEnabled(bool value) async {
-    setState(() {
-      _syncEnabled = value;
-    });
-    
+
+  Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('sync_enabled', value);
-    
-    if (value) {
-      // If turning on sync, run a sync immediately
-      _syncNow();
-    }
+    await prefs.setBool('sync_enabled', _syncEnabled);
+    await prefs.setBool(AppConstants.notificationsEnabledPrefKey, _notificationsEnabled);
+    await prefs.setBool('sounds_enabled', _soundsEnabled);
+    await prefs.setBool('vibration_enabled', _vibrationEnabled);
   }
 
   @override
@@ -146,507 +62,387 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(
         title: const Text('Settings'),
       ),
-      body: FutureBuilder<TimerConfig>(
-        future: _timerConfigFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final timerConfig = snapshot.data ?? TimerConfig.defaultConfig;
-
-          return ListView(
-            children: [
-              // Sync settings (new section)
-              if (_authService.isAuthenticated) ... [
-                _buildSyncSettingsSection(context),
-                const SizedBox(height: 20),
-              ],
-              
-              _buildTimerSettingsSection(context, timerConfig),
-              const SizedBox(height: 20),
-              _buildSystemSettingsSection(context),
-              
-              if (_authService.isAuthenticated) ... [
-                const SizedBox(height: 20),
-                _buildAccountSection(context),
-              ],
-            ],
-          );
-        },
-      ),
-    );
-  }
-  
-  Widget _buildSyncSettingsSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
-          child: Text(
-            'Sync',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
-          ),
-        ),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Column(
-            children: [
-              // Enable sync toggle
-              SwitchListTile(
-                title: const Text('Enable Sync'),
-                subtitle: const Text('Sync your data across all devices'),
-                value: _syncEnabled,
-                onChanged: _toggleSyncEnabled,
-              ),
-              
-              const Divider(height: 1, indent: 16),
-              
-              // Sync now button
-              ListTile(
-                title: const Text('Sync Now'),
-                subtitle: Text(_syncStatusMessage ?? 'Not synced yet'),
-                trailing: _isSyncing 
-                  ? const SizedBox(
-                      width: 20, 
-                      height: 20, 
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.sync),
-                onTap: _syncNow,
-                enabled: _syncEnabled && !_isSyncing && _authService.isAuthenticated,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTimerSettingsSection(BuildContext context, TimerConfig config) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
-          child: Text(
-            'Timer Settings',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
-          ),
-        ),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Column(
-            children: [
-              _buildTimerDurationTile(
-                context,
-                title: 'Focus Time Duration',
-                value: config.pomodoroDurationInMinutes,
-                unit: 'min',
-                onChanged: (value) => _updateTimerConfig(
-                  config.copyWith(pomoDuration: value * 60),
-                ),
-                min: 1,
-                max: 60,
-              ),
-              const Divider(height: 1, indent: 16),
-              _buildTimerDurationTile(
-                context,
-                title: 'Short Break Duration',
-                value: config.shortBreakDurationInMinutes,
-                unit: 'min',
-                onChanged: (value) => _updateTimerConfig(
-                  config.copyWith(shortBreakDuration: value * 60),
-                ),
-                min: 1,
-                max: 30,
-              ),
-              const Divider(height: 1, indent: 16),
-              _buildTimerDurationTile(
-                context,
-                title: 'Long Break Duration',
-                value: config.longBreakDurationInMinutes,
-                unit: 'min',
-                onChanged: (value) => _updateTimerConfig(
-                  config.copyWith(longBreakDuration: value * 60),
-                ),
-                min: 5,
-                max: 60,
-              ),
-              const Divider(height: 1, indent: 16),
-              _buildTimerDurationTile(
-                context,
-                title: 'Pomodoros Before Long Break',
-                value: config.longBreakInterval,
-                unit: '',
-                onChanged: (value) => _updateTimerConfig(
-                  config.copyWith(longBreakInterval: value),
-                ),
-                min: 1,
-                max: 10,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTimerDurationTile(
-    BuildContext context, {
-    required String title,
-    required int value,
-    required String unit,
-    required void Function(int) onChanged,
-    required int min,
-    required int max,
-  }) {
-    return ListTile(
-      title: Text(title),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
+      body: ListView(
         children: [
-          Text(
-            unit.isEmpty ? '$value' : '$value $unit',
-            style: TextStyle(
-              color: Theme.of(context).hintColor,
-            ),
+          // App Info
+          _buildSectionHeader('App Information'),
+          ListTile(
+            title: const Text('App Name'),
+            subtitle: Text(AppConstants.appName),
           ),
-          const SizedBox(width: 8),
-          Icon(
-            Icons.chevron_right,
-            color: Theme.of(context).hintColor,
+          ListTile(
+            title: const Text('App Version'),
+            subtitle: Text(AppConstants.appVersion),
           ),
-        ],
-      ),
-      onTap: () => _showDurationPicker(
-        context,
-        title: title,
-        initialValue: value,
-        onChanged: onChanged,
-        min: min,
-        max: max,
-        unit: unit,
-      ),
-    );
-  }
+          const Divider(),
 
-  Future<void> _showDurationPicker(
-    BuildContext context, {
-    required String title,
-    required int initialValue,
-    required void Function(int) onChanged,
-    required int min,
-    required int max,
-    required String unit,
-  }) async {
-    var selectedValue = initialValue;
-
-    await showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        height: 300,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    onChanged(selectedValue);
-                    Navigator.pop(context);
+          // Appearance Settings
+          _buildSectionHeader('Appearance'),
+          BlocBuilder<ThemeBloc, ThemeState>(
+            builder: (context, state) {
+              return ListTile(
+                title: const Text('Theme'),
+                subtitle: Text(_getThemeModeText(state.themeMode)),
+                trailing: DropdownButton<ThemeMode>(
+                  value: state.themeMode,
+                  onChanged: (ThemeMode? newMode) {
+                    if (newMode != null) {
+                      context.setThemeMode(newMode);
+                    }
                   },
-                  child: const Text('Done'),
-                ),
-              ],
-            ),
-            Expanded(
-              child: CupertinoPicker(
-                itemExtent: 40,
-                onSelectedItemChanged: (index) {
-                  selectedValue = min + index;
-                },
-                scrollController: FixedExtentScrollController(
-                  initialItem: initialValue - min,
-                ),
-                children: List.generate(
-                  max - min + 1,
-                  (index) => Center(
-                    child: Text(
-                      unit.isEmpty ? '${min + index}' : '${min + index} $unit',
+                  items: const [
+                    DropdownMenuItem(
+                      value: ThemeMode.system,
+                      child: Text('System'),
                     ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _updateTimerConfig(TimerConfig config) async {
-    await _timerRepository.saveTimerConfig(config);
-
-    context.read<TimerBloc>().add(TimerConfigChanged(config: config));
-
-    setState(() {
-      _timerConfigFuture = Future.value(config);
-    });
-  }
-
-  Widget _buildSystemSettingsSection(BuildContext context) {
-    final currentThemeMode =
-        context.select((ThemeBloc bloc) => bloc.state.themeMode);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 16, bottom: 8),
-          child: Text(
-            'System Settings',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
-          ),
-        ),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Column(
-            children: [
-              // Appearance section
-              ListTile(
-                title: const Text('Appearance'),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _getThemeModeText(currentThemeMode),
-                      style: TextStyle(
-                        color: Theme.of(context).hintColor,
-                      ),
+                    DropdownMenuItem(
+                      value: ThemeMode.light,
+                      child: Text('Light'),
                     ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.chevron_right,
-                      color: Theme.of(context).hintColor,
+                    DropdownMenuItem(
+                      value: ThemeMode.dark,
+                      child: Text('Dark'),
                     ),
                   ],
+                  underline: const SizedBox.shrink(),
                 ),
-                onTap: () => _showThemeModePicker(context, currentThemeMode),
-              ),
-              const Divider(height: 1, indent: 16),
-              // Notifications section
-              SwitchListTile(
-                title: const Text('Enable Notifications'),
-                value: true, // This should come from settings repository
-                onChanged: (value) {
-                  // Update settings
+              );
+            },
+          ),
+          const Divider(),
+
+          // Window Settings (Desktop only)
+          if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) ...[
+            _buildSectionHeader('Window'),
+            ListTile(
+              title: const Text('Window Settings'),
+              subtitle: const Text('Configure window size and behavior'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                context.push(Routes.windowSettings);
+              },
+            ),
+            const Divider(),
+          ],
+
+          // Notification Settings
+          _buildSectionHeader('Notifications'),
+          SwitchListTile(
+            title: const Text('Enable Notifications'),
+            subtitle: const Text('Get notified when timers complete'),
+            value: _notificationsEnabled,
+            onChanged: (bool value) async {
+              setState(() {
+                _notificationsEnabled = value;
+              });
+              await _saveSettings();
+            },
+          ),
+          SwitchListTile(
+            title: const Text('Sound Effects'),
+            subtitle: const Text('Play sound when timer completes'),
+            value: _soundsEnabled,
+            onChanged: (bool value) async {
+              setState(() {
+                _soundsEnabled = value;
+              });
+              await _saveSettings();
+            },
+          ),
+          SwitchListTile(
+            title: const Text('Vibration'),
+            subtitle: const Text('Vibrate when timer completes'),
+            value: _vibrationEnabled,
+            onChanged: (bool value) async {
+              setState(() {
+                _vibrationEnabled = value;
+              });
+              await _saveSettings();
+            },
+          ),
+          const Divider(),
+
+          // Timer Settings
+          _buildSectionHeader('Timer Settings'),
+          ListTile(
+            title: const Text('Default Timer Duration'),
+            subtitle: const Text('Configure default timer durations'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              // Navigate to timer settings
+            },
+          ),
+          const Divider(),
+
+          // Sync Settings
+          _buildSectionHeader('Synchronization'),
+          SwitchListTile(
+            title: const Text('Enable Sync'),
+            subtitle: const Text('Sync your data across devices'),
+            value: _syncEnabled,
+            onChanged: _authService.isAuthenticated
+                ? (bool value) async {
+                    setState(() {
+                      _syncEnabled = value;
+                    });
+                    await _saveSettings();
+                    
+                    // Update sync service
+                    _syncService.restartBackgroundSync();
+                    
+                    // Force sync if enabled
+                    if (value) {
+                      _syncService.syncAll();
+                    }
+                  }
+                : null,
+          ),
+          if (_authService.isAuthenticated) ...[
+            ListTile(
+              title: const Text('Sync Now'),
+              subtitle: Text('Last sync: ${_getLastSyncTimeText()}'),
+              trailing: IconButton(
+                icon: const Icon(Icons.sync),
+                onPressed: () async {
+                  // Show sync in progress
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Syncing data...'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                  
+                  // Perform sync
+                  final success = await _syncService.syncAll();
+                  
+                  // Show result
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Sync completed successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Sync failed. Please try again later.'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                  
+                  // Refresh UI to show updated last sync time
+                  setState(() {});
                 },
               ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildAccountSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 16, bottom: 8),
-          child: Text(
-            'Account',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
+            ),
+          ],
+          if (!_authService.isAuthenticated)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppDimensions.md),
+              child: Text(
+                'Sign in to enable synchronization',
+                style: TextStyle(
+                  fontStyle: FontStyle.italic,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+          const Divider(),
+
+          // Account
+          _buildSectionHeader('Account'),
+          if (_authService.isAuthenticated)
+            ListTile(
+              title: Text(_authService.userEmail ?? 'User'),
+              subtitle: const Text('Signed in'),
+              trailing: TextButton(
+                onPressed: () async {
+                  // Show confirmation dialog
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Sign Out'),
+                      content: const Text('Are you sure you want to sign out?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Sign Out'),
+                        ),
+                      ],
+                    ),
+                  );
+                  
+                  if (confirmed == true) {
+                    await _authService.signOut();
+                    setState(() {});
+                  }
+                },
+                child: const Text('Sign Out'),
+              ),
+            )
+          else
+            ListTile(
+              title: const Text('Sign In'),
+              subtitle: const Text('Sync your data across devices'),
+              trailing: ElevatedButton(
+                onPressed: () {
+                  context.go(Routes.login);
+                },
+                child: const Text('Sign In'),
+              ),
+            ),
+          const Divider(),
+
+          // Data Management
+          _buildSectionHeader('Data Management'),
+          ListTile(
+            title: const Text('Export Data'),
+            subtitle: const Text('Export your tasks and timer sessions'),
+            trailing: IconButton(
+              icon: const Icon(Icons.download),
+              onPressed: () {
+                // Export data
+              },
             ),
           ),
-        ),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Column(
-            children: [
-              ListTile(
-                title: Text(_authService.userEmail ?? 'Anonymous User'),
-                subtitle: Text(_authService.isAuthenticated 
-                    ? 'Signed in' 
-                    : 'Not signed in'),
-                leading: const Icon(Icons.account_circle),
-              ),
-              const Divider(height: 1, indent: 16),
-              // Sign out button
-              ListTile(
-                title: const Text('Sign Out'),
-                leading: const Icon(Icons.logout),
-                textColor: Theme.of(context).colorScheme.error,
-                iconColor: Theme.of(context).colorScheme.error,
-                onTap: () => _showSignOutConfirmation(context),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-  
-  Future<void> _showSignOutConfirmation(BuildContext context) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Sign Out'),
-        content: const Text('Are you sure you want to sign out?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.error,
+          ListTile(
+            title: const Text('Import Data'),
+            subtitle: const Text('Import tasks and timer sessions'),
+            trailing: IconButton(
+              icon: const Icon(Icons.upload),
+              onPressed: () {
+                // Import data
+              },
             ),
-            child: const Text('Sign Out'),
           ),
+          ListTile(
+            title: const Text('Clear All Data'),
+            subtitle: const Text('Delete all local data'),
+            trailing: IconButton(
+              icon: const Icon(Icons.delete_forever),
+              onPressed: () async {
+                // Show confirmation dialog
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Clear All Data'),
+                    content: const Text(
+                      'Are you sure you want to delete all local data? This action cannot be undone.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Delete'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+                
+                if (confirmed == true) {
+                  // Clear all data
+                  // Show loading indicator
+                  // Show success message
+                }
+              },
+            ),
+          ),
+          const Divider(),
+
+          // About
+          _buildSectionHeader('About'),
+          ListTile(
+            title: const Text('Privacy Policy'),
+            onTap: () {
+              // Open privacy policy
+            },
+          ),
+          ListTile(
+            title: const Text('Terms of Service'),
+            onTap: () {
+              // Open terms of service
+            },
+          ),
+          ListTile(
+            title: const Text('Acknowledgements'),
+            subtitle: const Text('Third-party libraries and assets'),
+            onTap: () {
+              // Show acknowledgements
+              showLicensePage(
+                context: context,
+                applicationName: AppConstants.appName,
+                applicationVersion: AppConstants.appVersion,
+              );
+            },
+          ),
+          const SizedBox(height: AppDimensions.xl),
         ],
       ),
     );
-    
-    if (result == true) {
-      await _authService.signOut();
-      if (mounted) {
-        // Navigate to login
-        context.go(Routes.login);
-      }
-    }
   }
 
-  String _getThemeModeText(ThemeMode themeMode) {
-    switch (themeMode) {
-      case ThemeMode.system:
-        return 'System';
-      case ThemeMode.light:
-        return 'Light';
-      case ThemeMode.dark:
-        return 'Dark';
-      default:
-        return 'System';
-    }
-  }
-
-  Future<void> _showThemeModePicker(
-    BuildContext context,
-    ThemeMode currentThemeMode,
-  ) async {
-    await showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Choose Appearance',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildThemeModeOption(
-              context,
-              title: 'System',
-              icon: Icons.brightness_auto,
-              themeMode: ThemeMode.system,
-              currentThemeMode: currentThemeMode,
-            ),
-            _buildThemeModeOption(
-              context,
-              title: 'Light',
-              icon: Icons.light_mode,
-              themeMode: ThemeMode.light,
-              currentThemeMode: currentThemeMode,
-            ),
-            _buildThemeModeOption(
-              context,
-              title: 'Dark',
-              icon: Icons.dark_mode,
-              themeMode: ThemeMode.dark,
-              currentThemeMode: currentThemeMode,
-            ),
-          ],
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppDimensions.md,
+        AppDimensions.md,
+        AppDimensions.md,
+        AppDimensions.xs,
+      ),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Theme.of(context).colorScheme.primary,
+          letterSpacing: 1.2,
         ),
       ),
     );
   }
 
-  Widget _buildThemeModeOption(
-    BuildContext context, {
-    required String title,
-    required IconData icon,
-    required ThemeMode themeMode,
-    required ThemeMode currentThemeMode,
-  }) {
-    final isSelected = themeMode == currentThemeMode;
-
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: Theme.of(context).colorScheme.primary,
-      ),
-      title: Text(title),
-      trailing: isSelected
-          ? Icon(
-              Icons.check,
-              color: Theme.of(context).colorScheme.primary,
-            )
-          : null,
-      onTap: () {
-        context.setThemeMode(themeMode);
-        Navigator.pop(context);
-      },
-    );
+  String _getThemeModeText(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.system:
+        return 'Follow system';
+      case ThemeMode.light:
+        return 'Light mode';
+      case ThemeMode.dark:
+        return 'Dark mode';
+    }
+  }
+  
+  String _getLastSyncTimeText() {
+    final lastSyncTime = _syncService.lastSyncTime;
+    if (lastSyncTime == null) {
+      return 'Never';
+    }
+    
+    final now = DateTime.now();
+    final difference = now.difference(lastSyncTime);
+    
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inHours < 1) {
+      return '${difference.inMinutes} minutes ago';
+    } else if (difference.inDays < 1) {
+      return '${difference.inHours} hours ago';
+    } else if (difference.inDays < 30) {
+      return '${difference.inDays} days ago';
+    } else {
+      return '${lastSyncTime.day}/${lastSyncTime.month}/${lastSyncTime.year}';
+    }
   }
 }

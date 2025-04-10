@@ -5,6 +5,7 @@ import 'package:tictask/app/screens/home_screen.dart';
 import 'package:tictask/app/screens/not_found_screen.dart';
 import 'package:tictask/app/services/auth_service.dart';
 import 'package:tictask/features/auth/screens/login_screen.dart';
+import 'package:tictask/features/settings/screens/window_settings_screen.dart';
 import 'package:tictask/features/timer/screens/timer_screen.dart';
 import 'package:get_it/get_it.dart';
 
@@ -85,6 +86,12 @@ GoRouter getAppRouter() {
       GoRoute(
         path: Routes.settings,
         builder: (context, state) => const HomeScreen(initialIndex: 4),
+        routes: [
+          GoRoute(
+            path: 'window',
+            builder: (context, state) => const WindowSettingsScreen(),
+          ),
+        ],
       ),
       GoRoute(
         path: Routes.calendar,
