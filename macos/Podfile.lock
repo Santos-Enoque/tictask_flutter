@@ -1,23 +1,105 @@
 PODS:
+  - app_links (1.0.0):
+    - FlutterMacOS
+  - AppAuth (1.7.6):
+    - AppAuth/Core (= 1.7.6)
+    - AppAuth/ExternalUserAgent (= 1.7.6)
+  - AppAuth/Core (1.7.6)
+  - AppAuth/ExternalUserAgent (1.7.6):
+    - AppAuth/Core
+  - connectivity_plus (0.0.1):
+    - FlutterMacOS
+  - flutter_local_notifications (0.0.1):
+    - FlutterMacOS
   - FlutterMacOS (1.0.0)
+  - google_sign_in_ios (0.0.1):
+    - AppAuth (>= 1.7.4)
+    - Flutter
+    - FlutterMacOS
+    - GoogleSignIn (~> 7.1)
+    - GTMSessionFetcher (>= 3.4.0)
+  - GoogleSignIn (7.1.0):
+    - AppAuth (< 2.0, >= 1.7.3)
+    - GTMAppAuth (< 5.0, >= 4.1.1)
+    - GTMSessionFetcher/Core (~> 3.3)
+  - GTMAppAuth (4.1.1):
+    - AppAuth/Core (~> 1.7)
+    - GTMSessionFetcher/Core (< 4.0, >= 3.3)
+  - GTMSessionFetcher (3.5.0):
+    - GTMSessionFetcher/Full (= 3.5.0)
+  - GTMSessionFetcher/Core (3.5.0)
+  - GTMSessionFetcher/Full (3.5.0):
+    - GTMSessionFetcher/Core
   - path_provider_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
+  - screen_retriever_macos (0.0.1):
+    - FlutterMacOS
+  - shared_preferences_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - url_launcher_macos (0.0.1):
+    - FlutterMacOS
+  - window_manager (0.2.0):
+    - FlutterMacOS
 
 DEPENDENCIES:
+  - app_links (from `Flutter/ephemeral/.symlinks/plugins/app_links/macos`)
+  - connectivity_plus (from `Flutter/ephemeral/.symlinks/plugins/connectivity_plus/macos`)
+  - flutter_local_notifications (from `Flutter/ephemeral/.symlinks/plugins/flutter_local_notifications/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
+  - google_sign_in_ios (from `Flutter/ephemeral/.symlinks/plugins/google_sign_in_ios/darwin`)
   - path_provider_foundation (from `Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin`)
+  - screen_retriever_macos (from `Flutter/ephemeral/.symlinks/plugins/screen_retriever_macos/macos`)
+  - shared_preferences_foundation (from `Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - url_launcher_macos (from `Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos`)
+  - window_manager (from `Flutter/ephemeral/.symlinks/plugins/window_manager/macos`)
+
+SPEC REPOS:
+  trunk:
+    - AppAuth
+    - GoogleSignIn
+    - GTMAppAuth
+    - GTMSessionFetcher
 
 EXTERNAL SOURCES:
+  app_links:
+    :path: Flutter/ephemeral/.symlinks/plugins/app_links/macos
+  connectivity_plus:
+    :path: Flutter/ephemeral/.symlinks/plugins/connectivity_plus/macos
+  flutter_local_notifications:
+    :path: Flutter/ephemeral/.symlinks/plugins/flutter_local_notifications/macos
   FlutterMacOS:
     :path: Flutter/ephemeral
+  google_sign_in_ios:
+    :path: Flutter/ephemeral/.symlinks/plugins/google_sign_in_ios/darwin
   path_provider_foundation:
     :path: Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin
+  screen_retriever_macos:
+    :path: Flutter/ephemeral/.symlinks/plugins/screen_retriever_macos/macos
+  shared_preferences_foundation:
+    :path: Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin
+  url_launcher_macos:
+    :path: Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos
+  window_manager:
+    :path: Flutter/ephemeral/.symlinks/plugins/window_manager/macos
 
 SPEC CHECKSUMS:
+  app_links: afe860c55c7ef176cea7fb630a2b7d7736de591d
+  AppAuth: d4f13a8fe0baf391b2108511793e4b479691fb73
+  connectivity_plus: 4adf20a405e25b42b9c9f87feff8f4b6fde18a4e
+  flutter_local_notifications: 4bf37a31afde695b56091b4ae3e4d9c7a7e6cda0
   FlutterMacOS: 8f6f14fa908a6fb3fba0cd85dbd81ec4b251fb24
+  google_sign_in_ios: 19297361f2c51d7d8ac0201b866ef1fa5d1f94a8
+  GoogleSignIn: d4281ab6cf21542b1cfaff85c191f230b399d2db
+  GTMAppAuth: f69bd07d68cd3b766125f7e072c45d7340dea0de
+  GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
+  screen_retriever_macos: 452e51764a9e1cdb74b3c541238795849f21557f
+  shared_preferences_foundation: 9e1978ff2562383bd5676f64ec4e9aa8fa06a6f7
+  url_launcher_macos: 0fba8ddabfc33ce0a9afe7c5fef5aab3d8d2d673
+  window_manager: 1d01fa7ac65a6e6f83b965471b1a7fdd3f06166c
 
-PODFILE CHECKSUM: 7eb978b976557c8c1cd717d8185ec483fd090a82
+PODFILE CHECKSUM: 54d867c82ac51cbd61b565781b9fada492027009
 
 COCOAPODS: 1.16.2

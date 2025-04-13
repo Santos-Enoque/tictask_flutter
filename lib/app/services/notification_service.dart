@@ -1,21 +1,19 @@
 import 'dart:io';
-import 'dart:html' as html;
+
+// import 'dart:html' as html;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_local_notifications_linux/flutter_local_notifications_linux.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tictask/app/constants/app_constants.dart';
-import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 
 /// Service to handle all app notifications
 /// Currently supports Linux, with plans for mobile and web
 class NotificationService {
-  static final NotificationService _instance = NotificationService._internal();
-
   factory NotificationService() => _instance;
 
   NotificationService._internal();
+  static final NotificationService _instance = NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -34,35 +32,40 @@ class NotificationService {
 
   /// Initialize the notification service
   Future<void> initialize() async {
-    // Only initialize once
     if (_initialized) return;
 
     try {
-      // Initialize timezone data for scheduled notifications
       tz_data.initializeTimeZones();
-
-      // Load notification preferences
       await _loadPreferences();
 
       if (kIsWeb) {
         // Request permission for web notifications
-        if (html.Notification.supported) {
-          final permission = await html.Notification.requestPermission();
-          _initialized = permission == 'granted';
-          debugPrint('Web notifications permission: $permission');
-        } else {
-          debugPrint('Web notifications not supported in this browser');
-        }
+        // if (html.Notification.supported) {
+        //   final permission = await html.Notification.requestPermission();
+        //   _initialized = permission == 'granted';
+        //   debugPrint('Web notifications permission: $permission');
+        // } else {
+        //   debugPrint('Web notifications not supported in this browser');
+        // }
       } else if (Platform.isLinux) {
-        LinuxInitializationSettings initializationSettingsLinux =
-            LinuxInitializationSettings(
+        final initializationSettingsLinux = LinuxInitializationSettings(
           defaultActionName: 'Open TicTask',
           defaultIcon: AssetsLinuxIcon('assets/icons/app_icon.png'),
         );
 
-        final InitializationSettings initializationSettings =
-            InitializationSettings(
+        final initializationSettings = InitializationSettings(
           linux: initializationSettingsLinux,
+        );
+
+        await _notificationsPlugin.initialize(
+          initializationSettings,
+          onDidReceiveNotificationResponse: _onNotificationTapped,
+        );
+      } else if (Platform.isMacOS) {
+        const initializationSettingsMacOS = DarwinInitializationSettings();
+
+        const initializationSettings = InitializationSettings(
+          macOS: initializationSettingsMacOS,
         );
 
         await _notificationsPlugin.initialize(
@@ -120,23 +123,31 @@ class NotificationService {
 
     try {
       if (kIsWeb) {
-        if (html.Notification.supported) {
-          html.Notification(
-            title,
-            body: body,
-          );
-        }
-      } else if (Platform.isLinux) {
-        final LinuxNotificationDetails linuxDetails = LinuxNotificationDetails(
-          urgency: LinuxNotificationUrgency.normal,
-          category: LinuxNotificationCategory.device,
-          sound: _soundsEnabled
-              ? AssetsLinuxSound('assets/sounds/bell.wav')
+        // if (html.Notification.supported) {
+        //   html.Notification(
+        //     title,
+        //     body: body,
+        //   );
+        // }
+      } else if (Platform.isLinux || Platform.isMacOS) {
+        final notificationDetails = NotificationDetails(
+          linux: Platform.isLinux
+              ? LinuxNotificationDetails(
+                  urgency: LinuxNotificationUrgency.normal,
+                  category: LinuxNotificationCategory.device,
+                  sound: _soundsEnabled
+                      ? AssetsLinuxSound('assets/sounds/bell.wav')
+                      : null,
+                )
               : null,
-        );
-
-        final NotificationDetails notificationDetails = NotificationDetails(
-          linux: linuxDetails,
+          macOS: Platform.isMacOS
+              ? DarwinNotificationDetails(
+                  presentAlert: true,
+                  presentBadge: true,
+                  presentSound: _soundsEnabled,
+                  sound: 'bell.wav',
+                )
+              : null,
         );
 
         await _notificationsPlugin.show(
@@ -163,21 +174,28 @@ class NotificationService {
 
     try {
       if (kIsWeb) {
-        if (html.Notification.supported) {
-          html.Notification(
-            title,
-            body: body,
-          );
-        }
-      } else if (Platform.isLinux) {
-        final LinuxNotificationDetails linuxDetails = LinuxNotificationDetails(
-          urgency: LinuxNotificationUrgency.normal,
-          category: LinuxNotificationCategory.device,
-          sound: _soundsEnabled ? ThemeLinuxSound('message') : null,
-        );
-
-        final NotificationDetails notificationDetails = NotificationDetails(
-          linux: linuxDetails,
+        // if (html.Notification.supported) {
+        //   html.Notification(
+        //     title,
+        //     body: body,
+        //   );
+        // }
+      } else if (Platform.isLinux || Platform.isMacOS) {
+        final notificationDetails = NotificationDetails(
+          linux: Platform.isLinux
+              ? LinuxNotificationDetails(
+                  urgency: LinuxNotificationUrgency.normal,
+                  category: LinuxNotificationCategory.device,
+                  sound: _soundsEnabled ? ThemeLinuxSound('message') : null,
+                )
+              : null,
+          macOS: Platform.isMacOS
+              ? DarwinNotificationDetails(
+                  presentAlert: true,
+                  presentBadge: true,
+                  presentSound: _soundsEnabled,
+                )
+              : null,
         );
 
         await _notificationsPlugin.show(
@@ -211,21 +229,21 @@ class NotificationService {
         }
 
         Future.delayed(delay, () {
-          if (html.Notification.supported) {
-            html.Notification(
-              'Task Reminder',
-              body: 'Time to work on: $taskTitle',
-            );
-          }
+          // if (html.Notification.supported) {
+          //   html.Notification(
+          //     'Task Reminder',
+          //     body: 'Time to work on: $taskTitle',
+          //   );
+          // }
         });
       } else if (Platform.isLinux) {
-        final LinuxNotificationDetails linuxDetails = LinuxNotificationDetails(
+        final linuxDetails = LinuxNotificationDetails(
           urgency: LinuxNotificationUrgency.normal,
           category: LinuxNotificationCategory.device,
           sound: _soundsEnabled ? ThemeLinuxSound('alarm') : null,
         );
 
-        final NotificationDetails notificationDetails = NotificationDetails(
+        final notificationDetails = NotificationDetails(
           linux: linuxDetails,
         );
 
@@ -294,7 +312,9 @@ class NotificationService {
       if (notificationsEnabled != null) {
         _notificationsEnabled = notificationsEnabled;
         await prefs.setBool(
-            AppConstants.notificationsEnabledPrefKey, notificationsEnabled);
+          AppConstants.notificationsEnabledPrefKey,
+          notificationsEnabled,
+        );
       }
 
       if (soundsEnabled != null) {
