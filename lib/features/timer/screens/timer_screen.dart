@@ -748,10 +748,25 @@ class _TimerScreenState extends State<TimerScreen> {
         return FutureBuilder<List<Task>>(
           future: Future.value(
             _taskRepository.getAllTasks().then(
-                  (tasks) => tasks
-                      .where((task) => task.status != TaskStatus.completed)
-                      .toList(),
-                ),
+              (tasks) {
+                final now = DateTime.now();
+                final today = DateTime(now.year, now.month, now.day);
+                final tomorrow = today.add(const Duration(days: 1));
+
+                return tasks.where((task) {
+                  // Include task if:
+                  // 1. It's not completed AND
+                  // 2. Either it's ongoing OR it's scheduled for today
+                  if (task.status == TaskStatus.completed) return false;
+
+                  if (task.ongoing) return true;
+
+                  final taskDate =
+                      DateTime.fromMillisecondsSinceEpoch(task.startDate);
+                  return taskDate.isAfter(today) && taskDate.isBefore(tomorrow);
+                }).toList();
+              },
+            ),
           ),
           builder: (context, snapshot) {
             if (!snapshot.hasData) {

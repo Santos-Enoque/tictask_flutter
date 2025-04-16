@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:html' as html;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_local_notifications_linux/flutter_local_notifications_linux.dart';
@@ -46,13 +45,13 @@ class NotificationService {
 
       if (kIsWeb) {
         // Request permission for web notifications
-        if (html.Notification.supported) {
-          final permission = await html.Notification.requestPermission();
-          _initialized = permission == 'granted';
-          debugPrint('Web notifications permission: $permission');
-        } else {
-          debugPrint('Web notifications not supported in this browser');
-        }
+        // if (html.Notification.supported) {
+        //   final permission = await html.Notification.requestPermission();
+        //   _initialized = permission == 'granted';
+        //   debugPrint('Web notifications permission: $permission');
+        // } else {
+        //   debugPrint('Web notifications not supported in this browser');
+        // }
       } else if (Platform.isLinux) {
         LinuxInitializationSettings initializationSettingsLinux =
             LinuxInitializationSettings(
@@ -120,12 +119,12 @@ class NotificationService {
 
     try {
       if (kIsWeb) {
-        if (html.Notification.supported) {
-          html.Notification(
-            title,
-            body: body,
-          );
-        }
+        // if (html.Notification.supported) {
+        //   html.Notification(
+        //     title,
+        //     body: body,
+        //   );
+        // }
       } else if (Platform.isLinux) {
         final LinuxNotificationDetails linuxDetails = LinuxNotificationDetails(
           urgency: LinuxNotificationUrgency.normal,
@@ -163,12 +162,12 @@ class NotificationService {
 
     try {
       if (kIsWeb) {
-        if (html.Notification.supported) {
-          html.Notification(
-            title,
-            body: body,
-          );
-        }
+        // if (html.Notification.supported) {
+        //   html.Notification(
+        //     title,
+        //     body: body,
+          // );
+        // }
       } else if (Platform.isLinux) {
         final LinuxNotificationDetails linuxDetails = LinuxNotificationDetails(
           urgency: LinuxNotificationUrgency.normal,
@@ -211,12 +210,12 @@ class NotificationService {
         }
 
         Future.delayed(delay, () {
-          if (html.Notification.supported) {
-            html.Notification(
-              'Task Reminder',
-              body: 'Time to work on: $taskTitle',
-            );
-          }
+          // if (html.Notification.supported) {
+          //   html.Notification(
+          //     'Task Reminder',
+          //     body: 'Time to work on: $taskTitle',
+          //   );
+          // }
         });
       } else if (Platform.isLinux) {
         final LinuxNotificationDetails linuxDetails = LinuxNotificationDetails(
