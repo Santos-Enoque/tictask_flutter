@@ -1,20 +1,17 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_local_notifications_linux/flutter_local_notifications_linux.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tictask/app/constants/app_constants.dart';
-import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 
 /// Service to handle all app notifications
 /// Currently supports Linux, with plans for mobile and web
 class NotificationService {
-  static final NotificationService _instance = NotificationService._internal();
-
   factory NotificationService() => _instance;
 
   NotificationService._internal();
+  static final NotificationService _instance = NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -33,14 +30,10 @@ class NotificationService {
 
   /// Initialize the notification service
   Future<void> initialize() async {
-    // Only initialize once
     if (_initialized) return;
 
     try {
-      // Initialize timezone data for scheduled notifications
       tz_data.initializeTimeZones();
-
-      // Load notification preferences
       await _loadPreferences();
 
       if (kIsWeb) {
@@ -53,15 +46,24 @@ class NotificationService {
         //   debugPrint('Web notifications not supported in this browser');
         // }
       } else if (Platform.isLinux) {
-        LinuxInitializationSettings initializationSettingsLinux =
-            LinuxInitializationSettings(
+        final initializationSettingsLinux = LinuxInitializationSettings(
           defaultActionName: 'Open TicTask',
           defaultIcon: AssetsLinuxIcon('assets/icons/app_icon.png'),
         );
 
-        final InitializationSettings initializationSettings =
-            InitializationSettings(
+        final initializationSettings = InitializationSettings(
           linux: initializationSettingsLinux,
+        );
+
+        await _notificationsPlugin.initialize(
+          initializationSettings,
+          onDidReceiveNotificationResponse: _onNotificationTapped,
+        );
+      } else if (Platform.isMacOS) {
+        const initializationSettingsMacOS = DarwinInitializationSettings();
+
+        const initializationSettings = InitializationSettings(
+          macOS: initializationSettingsMacOS,
         );
 
         await _notificationsPlugin.initialize(
@@ -132,10 +134,14 @@ class NotificationService {
           sound: _soundsEnabled
               ? AssetsLinuxSound('assets/sounds/bell.wav')
               : null,
-        );
-
-        final NotificationDetails notificationDetails = NotificationDetails(
-          linux: linuxDetails,
+          macOS: Platform.isMacOS
+              ? DarwinNotificationDetails(
+                  presentAlert: true,
+                  presentBadge: true,
+                  presentSound: _soundsEnabled,
+                  sound: 'bell.wav',
+                )
+              : null,
         );
 
         await _notificationsPlugin.show(
@@ -173,10 +179,6 @@ class NotificationService {
           urgency: LinuxNotificationUrgency.normal,
           category: LinuxNotificationCategory.device,
           sound: _soundsEnabled ? ThemeLinuxSound('message') : null,
-        );
-
-        final NotificationDetails notificationDetails = NotificationDetails(
-          linux: linuxDetails,
         );
 
         await _notificationsPlugin.show(
@@ -218,13 +220,13 @@ class NotificationService {
           // }
         });
       } else if (Platform.isLinux) {
-        final LinuxNotificationDetails linuxDetails = LinuxNotificationDetails(
+        final linuxDetails = LinuxNotificationDetails(
           urgency: LinuxNotificationUrgency.normal,
           category: LinuxNotificationCategory.device,
           sound: _soundsEnabled ? ThemeLinuxSound('alarm') : null,
         );
 
-        final NotificationDetails notificationDetails = NotificationDetails(
+        final notificationDetails = NotificationDetails(
           linux: linuxDetails,
         );
 
@@ -293,7 +295,9 @@ class NotificationService {
       if (notificationsEnabled != null) {
         _notificationsEnabled = notificationsEnabled;
         await prefs.setBool(
-            AppConstants.notificationsEnabledPrefKey, notificationsEnabled);
+          AppConstants.notificationsEnabledPrefKey,
+          notificationsEnabled,
+        );
       }
 
       if (soundsEnabled != null) {
