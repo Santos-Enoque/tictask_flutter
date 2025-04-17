@@ -11,7 +11,9 @@ import 'package:tictask/core/utils/logger.dart';
 import 'package:tictask/features/projects/models/project.dart';
 import 'package:tictask/features/projects/repositories/project_repository.dart';
 import 'package:tictask/features/tasks/presentation/bloc/task_bloc.dart';
-import 'package:tictask/features/tasks/models/task.dart';
+import 'package:tictask/features/tasks/domain/entities/task.dart'
+    hide TaskStatus;
+import 'package:tictask/features/tasks/models/task.dart' as task_model;
 import 'package:tictask/features/tasks/presentation/widgets/date_scroll_picker.dart';
 import 'package:tictask/features/tasks/presentation/widgets/task_form_sheet.dart';
 import 'package:tictask/features/timer/bloc/timer_bloc.dart';
@@ -50,7 +52,7 @@ class _TasksScreenState extends State<TasksScreen> {
   void initState() {
     super.initState();
     _titleFocus = FocusNode();
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         FocusScope.of(context).requestFocus(_titleFocus);
@@ -61,21 +63,22 @@ class _TasksScreenState extends State<TasksScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    
+
     // Get project ID from URL parameters
-    final projectId = GoRouterState.of(context).uri.queryParameters['projectId'];
-    
+    final projectId =
+        GoRouterState.of(context).uri.queryParameters['projectId'];
+
     // Update selected project if needed
-    if (projectId != null && projectId.isNotEmpty && projectId != _selectedProjectId) {
+    if (projectId != null &&
+        projectId.isNotEmpty &&
+        projectId != _selectedProjectId) {
       setState(() {
         _selectedProjectId = projectId;
       });
     }
-    
+
     // Load tasks with project filter
-    context.read<TaskBloc>().add(
-      LoadTasksByDate(_selectedDate, projectId: _selectedProjectId),
-    );
+    _reloadTasks();
   }
 
   @override
@@ -261,6 +264,44 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   void _showTaskFormSheet({Task? task}) {
+    // Convert domain Task to model Task if needed
+    task_model.Task? modelTask;
+    if (task != null) {
+      // Map domain TaskStatus to app TaskStatus enum
+      TaskStatus modelStatus;
+      switch (task.status.toString()) {
+        case 'TaskStatus.todo':
+          modelStatus = TaskStatus.todo;
+          break;
+        case 'TaskStatus.inProgress':
+          modelStatus = TaskStatus.inProgress;
+          break;
+        case 'TaskStatus.completed':
+          modelStatus = TaskStatus.completed;
+          break;
+        default:
+          modelStatus = TaskStatus.todo;
+      }
+
+      modelTask = task_model.Task(
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        status: modelStatus,
+        createdAt: task.createdAt,
+        updatedAt: task.updatedAt,
+        completedAt: task.completedAt,
+        pomodorosCompleted: task.pomodorosCompleted,
+        estimatedPomodoros: task.estimatedPomodoros,
+        startDate: task.startDate,
+        endDate: task.endDate,
+        ongoing: task.ongoing,
+        hasReminder: task.hasReminder,
+        reminderTime: task.reminderTime,
+        projectId: task.projectId,
+      );
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -277,7 +318,7 @@ class _TasksScreenState extends State<TasksScreen> {
           // Add small top padding to show the form right below status bar
           padding: const EdgeInsets.only(top: 10),
           child: TaskFormSheet(
-            task: task,
+            task: modelTask,
             onComplete: () {
               // This closure will be called when the user taps the Add/Update button
               // We'll pop the sheet BEFORE dispatching the event to avoid race conditions
@@ -339,14 +380,15 @@ class _TasksScreenState extends State<TasksScreen> {
         final date = sortedDates[index];
         final tasksForDate = tasksByDate[date]!;
 
-        // Group tasks by status
-        final todoTasks =
-            tasksForDate.where((t) => t.status == TaskStatus.todo).toList();
+        // Group tasks by status using string comparison for domain entity
+        final todoTasks = tasksForDate
+            .where((t) => t.status.toString() == 'TaskStatus.todo')
+            .toList();
         final inProgressTasks = tasksForDate
-            .where((t) => t.status == TaskStatus.inProgress)
+            .where((t) => t.status.toString() == 'TaskStatus.inProgress')
             .toList();
         final completedTasks = tasksForDate
-            .where((t) => t.status == TaskStatus.completed)
+            .where((t) => t.status.toString() == 'TaskStatus.completed')
             .toList();
 
         return Column(
@@ -441,6 +483,7 @@ class _TasksScreenState extends State<TasksScreen> {
     final dateFormat = DateFormat('h:mm a');
     // Use startDate instead of dueDate for display
     final taskDate = DateTime.fromMillisecondsSinceEpoch(task.startDate);
+    final isCompleted = task.status.toString() == 'TaskStatus.completed';
 
     return Dismissible(
       key: Key(task.id),
@@ -492,7 +535,7 @@ class _TasksScreenState extends State<TasksScreen> {
             Padding(
               padding: const EdgeInsets.only(left: 8),
               child: Checkbox(
-                value: task.status == TaskStatus.completed,
+                value: isCompleted,
                 activeColor: _getStatusColor('Completed'),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(3),
@@ -514,9 +557,7 @@ class _TasksScreenState extends State<TasksScreen> {
                 title: Text(
                   task.title,
                   style: TextStyle(
-                    decoration: task.status == TaskStatus.completed
-                        ? TextDecoration.lineThrough
-                        : null,
+                    decoration: isCompleted ? TextDecoration.lineThrough : null,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -568,7 +609,7 @@ class _TasksScreenState extends State<TasksScreen> {
                     ),
                   ],
                 ),
-                trailing: task.status != TaskStatus.completed
+                trailing: !isCompleted
                     ? IconButton(
                         icon: const Icon(Icons.play_circle),
                         tooltip: 'Start Pomodoro',
@@ -647,7 +688,7 @@ class _TasksScreenState extends State<TasksScreen> {
 
     var completedTasks = 0;
     for (final task in tasks) {
-      if (task.status == TaskStatus.completed) {
+      if (task.status.toString() == 'TaskStatus.completed') {
         completedTasks++;
       }
     }
@@ -656,7 +697,7 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   Widget buildProjectInfo(Task task, BuildContext context) {
-    // Access the project repository
+    // This method could be refactored to use a ProjectBloc instead of direct repository access
     final projectRepository = GetIt.I<ProjectRepository>();
 
     return FutureBuilder<Project?>(
@@ -737,8 +778,9 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
-  // Add this new method
+  // The same applies to _buildProjectDropdown
   Widget _buildProjectDropdown() {
+    // This could be refactored to use a ProjectBloc
     return FutureBuilder<List<Project>>(
       future: _projectRepository.getAllProjects(),
       builder: (context, snapshot) {

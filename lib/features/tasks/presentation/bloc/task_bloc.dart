@@ -1,21 +1,56 @@
 // lib/features/tasks/presentation/bloc/task_bloc.dart
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:tictask/features/tasks/domain/usecases/increment_task_pmodoro_use_case.dart';
 import 'package:uuid/uuid.dart';
-import '../../domain/entities/task.dart';
-import '../../domain/repositories/task_repository.dart';
+import 'package:tictask/features/tasks/domain/entities/task.dart';
+import 'package:tictask/features/tasks/domain/usecases/create_task_use_case.dart';
+import 'package:tictask/features/tasks/domain/usecases/delete_task_use_case.dart';
+import 'package:tictask/features/tasks/domain/usecases/get_all_tasks_use_case.dart';
+import 'package:tictask/features/tasks/domain/usecases/get_tasks_by_project_use_case.dart';
+import 'package:tictask/features/tasks/domain/usecases/get_tasks_for_date_use_case.dart';
+import 'package:tictask/features/tasks/domain/usecases/get_tasks_in_date_range_use_case.dart';
+import 'package:tictask/features/tasks/domain/usecases/mark_task_as_completed_use_case.dart';
+import 'package:tictask/features/tasks/domain/usecases/mark_task_as_in_progress_use_case.dart';
+import 'package:tictask/features/tasks/domain/usecases/update_task_use_case.dart';
 
 part 'task_event.dart';
 part 'task_state.dart';
 
 class TaskBloc extends Bloc<TaskEvent, TaskState> {
-  final TaskRepository taskRepository;
-  final Uuid uuid;
+  final GetAllTasksUseCase _getAllTasksUseCase;
+  final GetTasksForDateUseCase _getTasksForDateUseCase;
+  final GetTasksInDateRangeUseCase _getTasksInDateRangeUseCase;
+  final CreateTaskUseCase _createTaskUseCase;
+  final UpdateTaskUseCase _updateTaskUseCase;
+  final DeleteTaskUseCase _deleteTaskUseCase;
+  final MarkTaskAsInProgressUseCase _markTaskAsInProgressUseCase;
+  final MarkTaskAsCompletedUseCase _markTaskAsCompletedUseCase;
+  final IncrementTaskPomodoroUseCase _incrementTaskPomodoroUseCase;
+  final GetTasksByProjectUseCase _getTasksByProjectUseCase;
 
   TaskBloc({
-    required this.taskRepository,
-    required this.uuid,
-  }) : super(TaskInitial()) {
+    required GetAllTasksUseCase getAllTasksUseCase,
+    required GetTasksForDateUseCase getTasksForDateUseCase,
+    required GetTasksInDateRangeUseCase getTasksInDateRangeUseCase,
+    required CreateTaskUseCase createTaskUseCase,
+    required UpdateTaskUseCase updateTaskUseCase,
+    required DeleteTaskUseCase deleteTaskUseCase,
+    required MarkTaskAsInProgressUseCase markTaskAsInProgressUseCase,
+    required MarkTaskAsCompletedUseCase markTaskAsCompletedUseCase,
+    required IncrementTaskPomodoroUseCase incrementTaskPomodoroUseCase,
+    required GetTasksByProjectUseCase getTasksByProjectUseCase,
+  })  : _getAllTasksUseCase = getAllTasksUseCase,
+        _getTasksForDateUseCase = getTasksForDateUseCase,
+        _getTasksInDateRangeUseCase = getTasksInDateRangeUseCase,
+        _createTaskUseCase = createTaskUseCase,
+        _updateTaskUseCase = updateTaskUseCase,
+        _deleteTaskUseCase = deleteTaskUseCase,
+        _markTaskAsInProgressUseCase = markTaskAsInProgressUseCase,
+        _markTaskAsCompletedUseCase = markTaskAsCompletedUseCase,
+        _incrementTaskPomodoroUseCase = incrementTaskPomodoroUseCase,
+        _getTasksByProjectUseCase = getTasksByProjectUseCase,
+        super(TaskInitial()) {
     on<LoadTasks>(_onLoadTasks);
     on<LoadTasksByDate>(_onLoadTasksByDate);
     on<LoadTasksInRange>(_onLoadTasksInRange);
@@ -33,7 +68,7 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
   ) async {
     emit(TaskLoading());
     try {
-      final tasks = await taskRepository.getAllTasks();
+      final tasks = await _getAllTasksUseCase.execute();
       emit(TaskLoaded(tasks));
     } catch (e) {
       emit(TaskError('Failed to load tasks: $e'));
@@ -46,41 +81,28 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
   ) async {
     emit(TaskLoading());
     try {
-      final tasks = await taskRepository.getTasksForDate(event.date);
-
-      // Filter by project if specified
-      if (event.projectId != null) {
-        final filteredTasks = tasks
-            .where((task) => task.projectId == event.projectId)
-            .toList();
-        emit(TaskLoaded(filteredTasks));
-      } else {
-        emit(TaskLoaded(tasks));
-      }
+      final tasks = await _getTasksForDateUseCase.execute(
+        event.date,
+        projectId: event.projectId,
+      );
+      emit(TaskLoaded(tasks));
     } catch (e) {
       emit(TaskError('Failed to load tasks for date: $e'));
     }
   }
- Future<void> _onLoadTasksInRange(
+
+  Future<void> _onLoadTasksInRange(
     LoadTasksInRange event,
     Emitter<TaskState> emit,
   ) async {
     emit(TaskLoading());
     try {
-      final tasks = await taskRepository.getTasksInDateRange(
+      final tasks = await _getTasksInDateRangeUseCase.execute(
         event.startDate,
         event.endDate,
+        projectId: event.projectId,
       );
-
-      // Filter by project if specified
-      if (event.projectId != null) {
-        final filteredTasks = tasks
-            .where((task) => task.projectId == event.projectId)
-            .toList();
-        emit(TaskLoaded(filteredTasks));
-      } else {
-        emit(TaskLoaded(tasks));
-      }
+      emit(TaskLoaded(tasks));
     } catch (e) {
       emit(TaskError('Failed to load tasks in range: $e'));
     }
@@ -92,27 +114,19 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
   ) async {
     emit(TaskLoading());
     try {
-      // Create a new task
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final task = Task(
-        id: uuid.v4(),
+      await _createTaskUseCase.execute(
         title: event.title,
         description: event.description,
-        status: TaskStatus.todo,
-        createdAt: now,
-        updatedAt: now,
-        pomodorosCompleted: 0,
         estimatedPomodoros: event.estimatedPomodoros,
-        startDate: event.startDate.millisecondsSinceEpoch,
-        endDate: event.endDate.millisecondsSinceEpoch,
+        startDate: event.startDate,
+        endDate: event.endDate,
         ongoing: event.ongoing,
         hasReminder: event.hasReminder,
-        reminderTime: event.reminderTime?.millisecondsSinceEpoch,
+        reminderTime: event.reminderTime,
         projectId: event.projectId,
       );
-
-      await taskRepository.saveTask(task);
-      final tasks = await taskRepository.getAllTasks();
+      
+      final tasks = await _getAllTasksUseCase.execute();
       emit(TaskLoaded(tasks));
       emit(const TaskActionSuccess('Task added successfully'));
     } catch (e) {
@@ -126,26 +140,20 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
   ) async {
     emit(TaskLoading());
     try {
-      final existingTask = await taskRepository.getTaskById(event.id);
-      if (existingTask == null) {
-        emit(const TaskError('Task not found'));
-        return;
-      }
-
-      final updatedTask = existingTask.copyWith(
+      await _updateTaskUseCase.execute(
+        id: event.id,
         title: event.title,
         description: event.description,
         estimatedPomodoros: event.estimatedPomodoros,
-        startDate: event.startDate?.millisecondsSinceEpoch,
-        endDate: event.endDate?.millisecondsSinceEpoch,
+        startDate: event.startDate,
+        endDate: event.endDate,
         ongoing: event.ongoing,
         hasReminder: event.hasReminder,
-        reminderTime: event.reminderTime?.millisecondsSinceEpoch,
+        reminderTime: event.reminderTime,
         projectId: event.projectId,
       );
 
-      await taskRepository.saveTask(updatedTask);
-      final tasks = await taskRepository.getAllTasks();
+      final tasks = await _getAllTasksUseCase.execute();
       emit(TaskLoaded(tasks));
       emit(const TaskActionSuccess('Task updated successfully'));
     } catch (e) {
@@ -159,8 +167,9 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
   ) async {
     emit(TaskLoading());
     try {
-      await taskRepository.deleteTask(event.id);
-      final tasks = await taskRepository.getAllTasks();
+      await _deleteTaskUseCase.execute(event.id);
+      
+      final tasks = await _getAllTasksUseCase.execute();
       emit(TaskLoaded(tasks));
       emit(const TaskActionSuccess('Task deleted successfully'));
     } catch (e) {
@@ -174,8 +183,9 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
   ) async {
     emit(TaskLoading());
     try {
-      await taskRepository.markTaskAsInProgress(event.id);
-      final tasks = await taskRepository.getAllTasks();
+      await _markTaskAsInProgressUseCase.execute(event.id);
+      
+      final tasks = await _getAllTasksUseCase.execute();
       emit(TaskLoaded(tasks));
       emit(const TaskActionSuccess('Task marked as in progress'));
     } catch (e) {
@@ -189,8 +199,9 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
   ) async {
     emit(TaskLoading());
     try {
-      await taskRepository.markTaskAsCompleted(event.id);
-      final tasks = await taskRepository.getAllTasks();
+      await _markTaskAsCompletedUseCase.execute(event.id);
+      
+      final tasks = await _getAllTasksUseCase.execute();
       emit(TaskLoaded(tasks));
       emit(const TaskActionSuccess('Task marked as completed'));
     } catch (e) {
@@ -204,8 +215,9 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
   ) async {
     emit(TaskLoading());
     try {
-      await taskRepository.incrementTaskPomodoro(event.id);
-      final tasks = await taskRepository.getAllTasks();
+      await _incrementTaskPomodoroUseCase.execute(event.id);
+      
+      final tasks = await _getAllTasksUseCase.execute();
       emit(TaskLoaded(tasks));
       emit(const TaskActionSuccess('Pomodoro incremented for task'));
     } catch (e) {

@@ -1,37 +1,92 @@
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tictask/features/tasks/data/datasources/task_local_datasource.dart';
-import 'package:tictask/features/tasks/data/datasources/task_remote_datasource.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:tictask/app/constants/app_constants.dart';
+import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/features/tasks/data/models/task_model.dart';
 import 'package:tictask/features/tasks/domain/entities/task.dart';
-import 'package:tictask/features/tasks/domain/repositories/task_repository.dart';
-import 'package:uuid/uuid.dart';
+import 'package:tictask/features/tasks/domain/repositories/i_task_repository.dart';
 
-class TaskRepositoryImpl implements TaskRepository {
+class TaskRepositoryImpl implements ITaskRepository {
+  late Box<TaskModel> _tasksBox;
 
-  TaskRepositoryImpl({
-    required this.localDataSource,
-    required this.remoteDataSource,
-    required this.uuid,
-  });
-  final TaskLocalDataSource localDataSource;
-  final TaskRemoteDataSource remoteDataSource;
-  final Uuid uuid;
+  // Initialize repository
+  Future<void> init() async {
+    try {
+      // Register enum adapter
+      if (!Hive.isAdapterRegistered(7)) {
+        Hive.registerAdapter(TaskStatusAdapter());
+      }
+
+      // Register class adapters
+      if (!Hive.isAdapterRegistered(10)) {
+        Hive.registerAdapter(TaskModelAdapter());
+      }
+
+      // Open box
+      _tasksBox = await Hive.openBox<TaskModel>(AppConstants.tasksBox);
+
+      print('TaskRepositoryImpl initialized successfully');
+    } catch (e) {
+      print('Error initializing TaskRepositoryImpl: $e');
+      // Create an empty box as fallback
+      _tasksBox = await Hive.openBox<TaskModel>(AppConstants.tasksBox);
+    }
+  }
 
   @override
   Future<List<Task>> getAllTasks() async {
-    return localDataSource.getAllTasks();
+    return _tasksBox.values.toList();
+  }
+
+  @override
+  Future<List<Task>> getIncompleteTasks() async {
+    return _tasksBox.values
+        .where((task) => task.status != TaskStatus.completed)
+        .toList();
+  }
+
+  @override
+  Future<List<Task>> getTasksForDate(DateTime date) async {
+    final startOfDay =
+        DateTime(date.year, date.month, date.day).millisecondsSinceEpoch;
+    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59)
+        .millisecondsSinceEpoch;
+
+    return _tasksBox.values.where((task) {
+      // Include ongoing tasks or tasks with date range overlapping this day
+      return task.ongoing ||
+          (task.startDate <= endOfDay && task.endDate >= startOfDay);
+    }).toList();
+  }
+
+  @override
+  Future<List<Task>> getTasksInDateRange(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    // Convert to start of day for startDate and end of day for endDate
+    final rangeStart = DateTime(startDate.year, startDate.month, startDate.day)
+        .millisecondsSinceEpoch;
+    final rangeEnd =
+        DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59)
+            .millisecondsSinceEpoch;
+
+    return _tasksBox.values.where((task) {
+      // Include ongoing tasks or tasks with date range overlapping the given range
+      return task.ongoing ||
+          (task.startDate <= rangeEnd && task.endDate >= rangeStart);
+    }).toList();
   }
 
   @override
   Future<Task?> getTaskById(String id) async {
-    return localDataSource.getTaskById(id);
+    return _tasksBox.get(id);
   }
 
   @override
   Future<void> saveTask(Task task) async {
-    // Convert to model if not already
-    final taskModel = task is TaskModel
-        ? task
+    // Ensure we have a TaskModel
+    final taskModel = task is TaskModel 
+        ? task 
         : TaskModel(
             id: task.id,
             title: task.title,
@@ -49,68 +104,48 @@ class TaskRepositoryImpl implements TaskRepository {
             reminderTime: task.reminderTime,
             projectId: task.projectId,
           );
-
-    // Save locally
-    await localDataSource.saveTask(taskModel);
-
-    // Mark for sync
-    await _markForSync(taskModel.id);
+    
+    await _tasksBox.put(task.id, taskModel);
   }
 
   @override
   Future<void> deleteTask(String id) async {
-    // Mark for deletion
-    await _markAsDeleted(id);
-
-    // Delete locally
-    await localDataSource.deleteTask(id);
-  }
-
-  @override
-  Future<List<Task>> getIncompleteTasks() async {
-    final tasks = await localDataSource.getAllTasks();
-    return tasks.where((task) => task.status != TaskStatus.completed).toList();
-  }
-
-  @override
-  Future<List<Task>> getTasksForDate(DateTime date) async {
-    return localDataSource.getTasksForDate(date);
-  }
-
-  @override
-  Future<List<Task>> getTasksInDateRange(DateTime startDate, DateTime endDate) async {
-    return localDataSource.getTasksInDateRange(startDate, endDate);
-  }
-
-  @override
-  Future<List<Task>> getTasksByProject(String projectId) async {
-    return localDataSource.getTasksByProject(projectId);
+    await _tasksBox.delete(id);
   }
 
   @override
   Future<void> markTaskAsInProgress(String id) async {
-    final task = await localDataSource.getTaskById(id);
+    final task = _tasksBox.get(id);
     if (task != null) {
-      await saveTask(task.markAsInProgress());
+      await _tasksBox.put(id, task.markAsInProgress());
     }
   }
 
   @override
   Future<void> markTaskAsCompleted(String id) async {
-    final task = await localDataSource.getTaskById(id);
+    final task = _tasksBox.get(id);
     if (task != null) {
-      await saveTask(task.markAsCompleted());
+      await _tasksBox.put(id, task.markAsCompleted());
     }
   }
 
   @override
   Future<void> incrementTaskPomodoro(String id) async {
-    final task = await localDataSource.getTaskById(id);
+    final task = _tasksBox.get(id);
     if (task != null) {
-      await saveTask(task.incrementPomodoro());
+      await _tasksBox.put(id, task.incrementPomodoro());
     }
   }
 
+  // Add method to get tasks by project
+  @override
+  Future<List<Task>> getTasksByProject(String projectId) async {
+    return _tasksBox.values
+        .where((task) => task.projectId == projectId)
+        .toList();
+  }
+
+  // Update tasks when a project is deleted (move them to Inbox)
   @override
   Future<void> moveTasksToInbox(String fromProjectId) async {
     final tasks = await getTasksByProject(fromProjectId);
@@ -119,137 +154,27 @@ class TaskRepositoryImpl implements TaskRepository {
     }
   }
 
-  // Sync-related methods
-  // Mark a task for sync
-  Future<void> _markForSync(String id) async {
-    final prefs = await SharedPreferences.getInstance();
-    final pendingSyncIds = prefs.getStringList('pending_task_sync_ids') ?? [];
-
-    if (!pendingSyncIds.contains(id)) {
-      pendingSyncIds.add(id);
-      await prefs.setStringList('pending_task_sync_ids', pendingSyncIds);
-    }
-  }
-
-  // Mark a task as deleted for sync
-  Future<void> _markAsDeleted(String id) async {
-    final prefs = await SharedPreferences.getInstance();
-    final deletedIds = prefs.getStringList('deleted_task_ids') ?? [];
-
-    if (!deletedIds.contains(id)) {
-      deletedIds.add(id);
-      await prefs.setStringList('deleted_task_ids', deletedIds);
-    }
-  }
-
-  // Get pending sync IDs
-  Future<Set<String>> _getPendingSyncIds() async {
-    final prefs = await SharedPreferences.getInstance();
-    final pendingSyncIds = prefs.getStringList('pending_task_sync_ids') ?? [];
-    return pendingSyncIds.toSet();
-  }
-
-  // Get deleted IDs
-  Future<Set<String>> _getDeletedIds() async {
-    final prefs = await SharedPreferences.getInstance();
-    final deletedIds = prefs.getStringList('deleted_task_ids') ?? [];
-    return deletedIds.toSet();
-  }
-
-  // Clear sync markers
-  Future<void> _clearSyncMarkers(Set<String> processedIds) async {
-    final prefs = await SharedPreferences.getInstance();
-    final pendingSyncIds = prefs.getStringList('pending_task_sync_ids') ?? []
-    ..removeWhere((id) => processedIds.contains(id));
-    await prefs.setStringList('pending_task_sync_ids', pendingSyncIds);
-  }
-
-  // Clear deletion markers
-  Future<void> _clearDeletionMarkers(Set<String> processedIds) async {
-    final prefs = await SharedPreferences.getInstance();
-    final deletedIds = prefs.getStringList('deleted_task_ids') ?? []
-    ..removeWhere((id) => processedIds.contains(id));
-    await prefs.setStringList('deleted_task_ids', deletedIds);
-  }
-
+  // Basic implementation of sync-related methods in the non-syncable version
   @override
   Future<int> pushChanges() async {
-    final pendingSyncIds = await _getPendingSyncIds();
-    final deletedIds = await _getDeletedIds();
-
-    if (pendingSyncIds.isEmpty && deletedIds.isEmpty) {
-      return 0;
-    }
-
-    // Get all tasks as map for quick lookup
-    final tasks = await localDataSource.getAllTasks();
-    final tasksMap = {for (final task in tasks) task.id: task};
-
-    // Push to remote
-    final syncCount = await remoteDataSource.pushChanges(
-      pendingSyncIds,
-      deletedIds,
-      tasksMap,
-    );
-
-    // Clear markers for processed IDs
-    await _clearSyncMarkers(pendingSyncIds);
-    await _clearDeletionMarkers(deletedIds);
-
-    // Update last sync time
-    await remoteDataSource.setLastSyncTime(DateTime.now());
-
-    return syncCount;
+    // Not supported in basic repository
+    return 0;
   }
 
   @override
   Future<int> pullChanges() async {
-    // Get last sync time
-    final lastSyncTime = await remoteDataSource.getLastSyncTime();
-
-    // Get deleted IDs to prevent re-adding deleted items
-    final deletedIds = await _getDeletedIds();
-
-    // Get pending sync IDs to avoid overwriting local changes
-    final pendingSyncIds = await _getPendingSyncIds();
-
-    // Fetch remote changes
-    final remoteTasks = await remoteDataSource.pullChanges(lastSyncTime);
-
-    var syncCount = 0;
-
-    // Process each remote task
-    for (final remoteTask in remoteTasks) {
-      // Skip if task is pending local sync
-      if (pendingSyncIds.contains(remoteTask.id)) {
-        continue;
-      }
-
-      // Skip if task is locally deleted
-      if (deletedIds.contains(remoteTask.id)) {
-        continue;
-      }
-
-      // Get local task
-      final localTask = await localDataSource.getTaskById(remoteTask.id);
-
-      // Only update if remote is newer or local doesn't exist
-      if (localTask == null || remoteTask.updatedAt > localTask.updatedAt) {
-        await localDataSource.saveTask(remoteTask);
-        syncCount++;
-      }
-    }
-
-    // Update last sync time
-    await remoteDataSource.setLastSyncTime(DateTime.now());
-
-    return syncCount;
+    // Not supported in basic repository
+    return 0;
   }
 
   @override
   Future<bool> hasPendingChanges() async {
-    final pendingSyncIds = await _getPendingSyncIds();
-    final deletedIds = await _getDeletedIds();
-    return pendingSyncIds.isNotEmpty || deletedIds.isNotEmpty;
+    // Not supported in basic repository
+    return false;
+  }
+
+  // Clean up resources
+  Future<void> close() async {
+    await _tasksBox.close();
   }
 }
