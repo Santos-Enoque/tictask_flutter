@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:tictask/app/theme/colors.dart';
 import 'package:tictask/features/projects/models/project.dart';
 import 'package:tictask/features/projects/repositories/project_repository.dart';
-import 'package:tictask/features/projects/widgets/project_form_sheet.dart';
+import 'package:tictask/features/projects/presentation/widgets/project_form_sheet.dart';
 import 'package:tictask/features/tasks/presentation/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
 import 'package:tictask/injection_container.dart' as di;

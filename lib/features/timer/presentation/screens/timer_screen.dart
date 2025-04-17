@@ -1,24 +1,26 @@
+
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/app/routes/routes.dart';
-import 'package:tictask/core/services/window_service.dart';
 import 'package:tictask/app/theme/dimensions.dart';
-import 'package:tictask/features/projects/models/project.dart';
-import 'package:tictask/features/projects/repositories/project_repository.dart';
-import 'package:tictask/features/projects/widgets/project_form_sheet.dart';
+import 'package:tictask/core/services/window_service.dart';
+import 'package:tictask/features/projects/domain/entities/project_entity.dart';
+import 'package:tictask/features/projects/domain/repositories/i_project_repository.dart';
+import 'package:tictask/features/projects/presentation/widgets/project_form_widget.dart';
+import 'package:tictask/features/tasks/domain/entities/task_entity.dart';
+import 'package:tictask/features/tasks/domain/repositories/i_task_repository.dart';
 import 'package:tictask/features/tasks/presentation/bloc/task_bloc.dart';
-import 'package:tictask/features/tasks/models/task.dart';
-import 'package:tictask/features/tasks/repositories/task_repository.dart';
+import 'package:tictask/features/timer/domain/entities/timer_entity.dart' as domain;
 import 'package:tictask/features/timer/presentation/bloc/timer_bloc.dart';
-import 'package:tictask/features/timer/presentation/widgets/widgets.dart';
+import 'package:tictask/features/timer/presentation/widgets/timer_display.dart';
 import 'package:tictask/injection_container.dart';
-import 'dart:io';
-import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 enum TimerDisplayMode {
   normal, // Regular display with all UI elements
@@ -59,7 +61,7 @@ class _TimerScreenState extends State<TimerScreen> {
   Future<Task?>? _taskFuture;
   String? _currentTaskId;
   bool _hasInitializedTask = false;
-  late TaskRepository _taskRepository;
+  late ITaskRepository _taskRepository;
   String? _selectedTaskId;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -77,14 +79,7 @@ class _TimerScreenState extends State<TimerScreen> {
   @override
   void initState() {
     super.initState();
-    _taskRepository = context.read<TaskRepository>();
-
-    // Load the latest timer configuration
-    final timerRepository = sl<TimerRepository>();
-    timerRepository.getTimerConfig().then((config) {
-      // Update the timer bloc with the latest configuration
-      context.read<TimerBloc>().add(TimerConfigChanged(config: config));
-    });
+    _taskRepository = GetIt.I<ITaskRepository>();
 
     // Initialize the timer
     context.read<TimerBloc>().add(const TimerInitialized());
@@ -191,8 +186,7 @@ class _TimerScreenState extends State<TimerScreen> {
   // Update this method to not use setState
   void _updateTaskFuture(String taskId) {
     try {
-      print('Loading task with ID: $taskId');
-      final taskRepository = context.read<TaskRepository>();
+      final taskRepository = GetIt.I<ITaskRepository>();
       _taskFuture = taskRepository.getTaskById(taskId);
       _currentTaskId = taskId;
 
@@ -200,17 +194,6 @@ class _TimerScreenState extends State<TimerScreen> {
       if (mounted) {
         setState(() {});
       }
-
-      // Log when task is loaded
-      _taskFuture?.then((task) {
-        if (task != null) {
-          print('Task loaded successfully: ${task.title}');
-        } else {
-          print('Task not found with ID: $taskId');
-        }
-      }).catchError((error) {
-        print('Error loading task: $error');
-      });
     } catch (e) {
       print('Error initializing task load: $e');
     }
@@ -358,16 +341,6 @@ class _TimerScreenState extends State<TimerScreen> {
       // Restore original resizable state
       await WindowService.setResizable(_wasResizableBefore);
     }
-  }
-
-  // Navigate to task selection
-  void _navigateToTaskSelection() {
-    context.push(Routes.tasks).then((selectedTaskId) {
-      if (selectedTaskId != null && selectedTaskId is String) {
-        _updateTaskFuture(selectedTaskId);
-        context.read<TimerBloc>().add(TimerStarted(taskId: selectedTaskId));
-      }
-    });
   }
 
   @override
@@ -830,7 +803,7 @@ class _TimerScreenState extends State<TimerScreen> {
 
   // New simplified drawer with only projects
   Widget _buildProjectsDrawer(BuildContext context) {
-    final projectRepository = GetIt.I<ProjectRepository>();
+    final projectRepository = GetIt.I<IProjectRepository>();
 
     return Drawer(
       child: SafeArea(
@@ -995,7 +968,7 @@ class _TimerScreenState extends State<TimerScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return ProjectFormSheet(
+        return ProjectFormWidget(
           project: project, // Pass existing project for editing
           onComplete: () {
             Navigator.pop(context);
@@ -1027,7 +1000,7 @@ class _TimerScreenState extends State<TimerScreen> {
             onPressed: () async {
               Navigator.pop(context);
               // Delete the project
-              await GetIt.I<ProjectRepository>().deleteProject(project.id);
+              await GetIt.I<IProjectRepository>().deleteProject(project.id);
               // Refresh the list
               if (mounted) {
                 setState(() {
@@ -1409,7 +1382,7 @@ class _TimerScreenState extends State<TimerScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return ProjectFormSheet(
+        return ProjectFormWidget(
           onComplete: () {
             // Close the sheet
             Navigator.pop(context);

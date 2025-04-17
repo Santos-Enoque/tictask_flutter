@@ -7,7 +7,7 @@ import 'package:tictask/core/services/auth_service.dart';
 import 'package:tictask/app/theme/app_theme.dart';
 import 'package:tictask/app/theme/themes/dark_theme.dart';
 import 'package:tictask/app/theme/themes/light_theme.dart';
-import 'package:tictask/features/projects/bloc/project_bloc.dart';
+import 'package:tictask/features/projects/presentation/bloc/project_bloc.dart';
 import 'package:tictask/features/projects/repositories/project_repository.dart';
 import 'package:tictask/features/tasks/presentation/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/repositories/task_repository.dart';

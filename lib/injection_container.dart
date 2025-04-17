@@ -9,7 +9,7 @@ import 'package:tictask/features/google_calendar/repositories/google_calendar_ta
 import 'package:tictask/features/google_calendar/services/google_auth_service.dart';
 import 'package:tictask/features/google_calendar/services/google_calendar_service.dart';
 import 'package:tictask/features/google_calendar/services/task_sync_service.dart';
-import 'package:tictask/features/projects/bloc/project_bloc.dart';
+import 'package:tictask/features/projects/presentation/bloc/project_bloc.dart';
 import 'package:tictask/features/projects/models/project.dart';
 import 'package:tictask/features/projects/repositories/project_repository.dart';
 import 'package:tictask/features/projects/repositories/syncable_project_repository.dart';

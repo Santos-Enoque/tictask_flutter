@@ -1,3 +1,4 @@
+
 part of 'project_bloc.dart';
 
 abstract class ProjectState extends Equatable {
@@ -14,7 +15,7 @@ class ProjectLoading extends ProjectState {}
 class ProjectLoaded extends ProjectState {
   const ProjectLoaded(this.projects);
 
-  final List<Project> projects;
+  final List<ProjectEntity> projects;
 
   @override
   List<Object> get props => [projects];

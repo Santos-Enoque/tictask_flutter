@@ -1,5 +1,5 @@
+
 import 'package:flutter/material.dart';
-import 'package:tictask/app/theme/dimensions.dart';
 import 'package:tictask/features/timer/presentation/bloc/timer_bloc.dart';
 
 class TimerControls extends StatelessWidget {
@@ -27,7 +27,7 @@ class TimerControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppDimensions.md),
+      padding: const EdgeInsets.symmetric(vertical: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: _buildControlButtons(context),
@@ -64,7 +64,7 @@ class TimerControls extends StatelessWidget {
             textColor: colorScheme.onPrimary,
             iconColor: colorScheme.onPrimary,
           ),
-          const SizedBox(width: AppDimensions.md),
+          const SizedBox(width: 16),
           _buildButton(
             context: context,
             onPressed: onReset,
@@ -88,7 +88,7 @@ class TimerControls extends StatelessWidget {
             textColor: colorScheme.onPrimary,
             iconColor: colorScheme.onPrimary,
           ),
-          const SizedBox(width: AppDimensions.md),
+          const SizedBox(width: 16),
           _buildButton(
             context: context,
             onPressed: onReset,
@@ -112,7 +112,7 @@ class TimerControls extends StatelessWidget {
             textColor: colorScheme.onSecondary,
             iconColor: colorScheme.onSecondary,
           ),
-          const SizedBox(width: AppDimensions.md),
+          const SizedBox(width: 16),
           _buildButton(
             context: context,
             onPressed: onSkipBreak,
@@ -136,7 +136,7 @@ class TimerControls extends StatelessWidget {
             textColor: colorScheme.onSecondary,
             iconColor: colorScheme.onSecondary,
           ),
-          const SizedBox(width: AppDimensions.md),
+          const SizedBox(width: 16),
           _buildButton(
             context: context,
             onPressed: onSkipBreak,
@@ -174,6 +174,14 @@ class TimerControls extends StatelessWidget {
     required Color iconColor,
     Color? borderColor,
   }) {
+    // For focus mode, use a more compact button
+    if (isFocusMode) {
+      return IconButton(
+        icon: Icon(icon, color: iconColor),
+        onPressed: onPressed,
+      );
+    }
+
     return ElevatedButton.icon(
       onPressed: onPressed,
       icon: Icon(
@@ -187,11 +195,11 @@ class TimerControls extends StatelessWidget {
       style: ElevatedButton.styleFrom(
         backgroundColor: backgroundColor,
         padding: const EdgeInsets.symmetric(
-          horizontal: AppDimensions.lg,
-          vertical: AppDimensions.md,
+          horizontal: 24,
+          vertical: 12,
         ),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+          borderRadius: BorderRadius.circular(12),
           side: borderColor != null
               ? BorderSide(color: borderColor)
               : BorderSide.none,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tictask/app/theme/colors.dart';
-import 'package:tictask/features/projects/bloc/project_bloc.dart';
+import 'package:tictask/features/projects/presentation/bloc/project_bloc.dart';
 import 'package:tictask/features/projects/models/project.dart';
 
 class ProjectFormSheet extends StatefulWidget {

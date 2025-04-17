@@ -1,6 +1,6 @@
+// lib/features/timer/presentation/widgets/timer_display.dart
+
 import 'package:flutter/material.dart';
-import 'package:tictask/app/theme/dimensions.dart';
-import 'package:tictask/app/theme/text_styles.dart';
 
 class TimerDisplay extends StatelessWidget {
   final int timeRemaining;
@@ -61,24 +61,26 @@ class TimerDisplay extends StatelessWidget {
         // Status indicator
         if (statusText != null && !compact)
           Container(
-            margin: const EdgeInsets.only(bottom: AppDimensions.md),
+            margin: const EdgeInsets.only(bottom: 16),
             padding: EdgeInsets.symmetric(
-              horizontal: compact ? AppDimensions.sm : AppDimensions.md,
-              vertical: compact ? AppDimensions.xs / 2 : AppDimensions.xs,
+              horizontal: compact ? 8 : 16,
+              vertical: compact ? 2 : 4,
             ),
             decoration: BoxDecoration(
               color: progressColor?.withOpacity(0.2) ?? 
                      Theme.of(context).colorScheme.primary.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
               statusText!,
               style: compact
-                ? AppTextStyles.labelSmall(context).copyWith(
+                ? TextStyle(
+                    fontSize: 12,
                     color: progressColor ?? Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.bold,
                   )
-                : AppTextStyles.labelMedium(context).copyWith(
+                : TextStyle(
+                    fontSize: 14,
                     color: progressColor ?? Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.bold,
                   ),
@@ -140,9 +142,9 @@ class TimerDisplay extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         )
-                      : AppTextStyles.displayMedium(context).copyWith(
+                      : TextStyle(
+                          fontSize: large ? 72 : 60,
                           fontWeight: FontWeight.bold,
-                          fontSize: AppTextStyles.displayMedium(context).fontSize! * fontSizeFactor,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                   ),
