@@ -1,23 +1,11 @@
 import 'package:hive/hive.dart';
-import 'package:tictask/features/timer/domain/entities/timer_session.dart';
+import 'package:tictask/features/timer/domain/entities/timer_session_entity.dart';
 import 'package:uuid/uuid.dart';
 
 part 'timer_session_model.g.dart';
 
-@HiveType(typeId: 6)
-enum SessionTypeModel {
-  @HiveField(0)
-  pomodoro,
-
-  @HiveField(1)
-  shortBreak,
-
-  @HiveField(2)
-  longBreak
-}
-
 @HiveType(typeId: 2)
-class TimerSessionModel extends TimerSession {
+class TimerSessionModel extends TimerSessionEntity {
   @HiveField(0)
   @override
   final String id;
@@ -39,7 +27,8 @@ class TimerSessionModel extends TimerSession {
   final int duration;
 
   @HiveField(5)
-  final SessionTypeModel typeModel;
+  @override
+  final SessionType type;
 
   @HiveField(6)
   @override
@@ -49,13 +38,13 @@ class TimerSessionModel extends TimerSession {
   @override
   final String? taskId;
 
-  TimerSessionModel({
+  const TimerSessionModel({
     required this.id,
     required this.date,
     required this.startTime,
     required this.endTime,
     required this.duration,
-    required this.typeModel,
+    required this.type,
     required this.completed,
     this.taskId,
   }) : super(
@@ -64,48 +53,31 @@ class TimerSessionModel extends TimerSession {
           startTime: startTime,
           endTime: endTime,
           duration: duration,
-          type: _mapTypeModelToDomain(typeModel),
+          type: type,
           completed: completed,
           taskId: taskId,
         );
 
-  // Map type model to domain
-  static SessionType _mapTypeModelToDomain(SessionTypeModel typeModel) {
-    switch (typeModel) {
-      case SessionTypeModel.pomodoro:
-        return SessionType.pomodoro;
-      case SessionTypeModel.shortBreak:
-        return SessionType.shortBreak;
-      case SessionTypeModel.longBreak:
-        return SessionType.longBreak;
-    }
-  }
-
-  // Map domain type to model
-  static SessionTypeModel _mapTypeDomainToModel(SessionType type) {
-    switch (type) {
-      case SessionType.pomodoro:
-        return SessionTypeModel.pomodoro;
-      case SessionType.shortBreak:
-        return SessionTypeModel.shortBreak;
-      case SessionType.longBreak:
-        return SessionTypeModel.longBreak;
-    }
-  }
-
-  // Factory method to create from domain entity
-  factory TimerSessionModel.fromEntity(TimerSession entity) {
-    return TimerSessionModel(
-      id: entity.id,
-      date: entity.date,
-      startTime: entity.startTime,
-      endTime: entity.endTime,
-      duration: entity.duration,
-      typeModel: _mapTypeDomainToModel(entity.type),
-      completed: entity.completed,
-      taskId: entity.taskId,
-    );
-  }
+  // Constructor with default date parameter
+  TimerSessionModel.withDate({
+    required String id,
+    required int startTime,
+    required int endTime,
+    required int duration,
+    required SessionType type,
+    required bool completed,
+    String? taskId,
+    DateTime? date,
+  }) : this(
+          id: id,
+          date: date ?? DateTime.now(),
+          startTime: startTime,
+          endTime: endTime,
+          duration: duration,
+          type: type,
+          completed: completed,
+          taskId: taskId,
+        );
 
   // Factory method to create a completed session
   factory TimerSessionModel.completed({
@@ -115,14 +87,13 @@ class TimerSessionModel extends TimerSession {
     required SessionType type,
     String? taskId,
   }) {
-    final id = const Uuid().v4();
     return TimerSessionModel(
-      id: id,
+      id: const Uuid().v4(),
       date: DateTime.now(),
       startTime: startTime,
       endTime: endTime,
       duration: duration,
-      typeModel: _mapTypeDomainToModel(type),
+      type: type,
       completed: true,
       taskId: taskId,
     );
@@ -136,20 +107,48 @@ class TimerSessionModel extends TimerSession {
     required SessionType type,
     String? taskId,
   }) {
-    final id = const Uuid().v4();
     return TimerSessionModel(
-      id: id,
+      id: const Uuid().v4(),
       date: DateTime.now(),
       startTime: startTime,
       endTime: endTime,
       duration: duration,
-      typeModel: _mapTypeDomainToModel(type),
+      type: type,
       completed: false,
       taskId: taskId,
     );
   }
 
-  // Create from JSON for API
+  // Factory to create from domain entity
+  factory TimerSessionModel.fromEntity(TimerSessionEntity entity) {
+    return TimerSessionModel(
+      id: entity.id,
+      date: entity.date,
+      startTime: entity.startTime,
+      endTime: entity.endTime,
+      duration: entity.duration,
+      type: entity.type,
+      completed: entity.completed,
+      taskId: entity.taskId,
+    );
+  }
+
+  // Convert to map for API
+  Map<String, dynamic> toJson({String? userId}) {
+    return {
+      'id': id,
+      'date': date.toIso8601String(),
+      'start_time': startTime,
+      'end_time': endTime,
+      'duration': duration,
+      'type': type.index,
+      'completed': completed,
+      'task_id': taskId,
+      'user_id': userId,
+    };
+  }
+
+  // Create from map from API
   factory TimerSessionModel.fromJson(Map<String, dynamic> json) {
     return TimerSessionModel(
       id: json['id'] as String,
@@ -157,23 +156,9 @@ class TimerSessionModel extends TimerSession {
       startTime: json['start_time'] as int,
       endTime: json['end_time'] as int,
       duration: json['duration'] as int,
-      typeModel: SessionTypeModel.values[json['type'] as int],
+      type: SessionType.values[json['type'] as int],
       completed: json['completed'] as bool,
       taskId: json['task_id'] as String?,
     );
-  }
-
-  // Convert to JSON for API
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'date': date.toIso8601String(),
-      'start_time': startTime,
-      'end_time': endTime,
-      'duration': duration,
-      'type': typeModel.index,
-      'completed': completed,
-      'task_id': taskId,
-    };
   }
 }

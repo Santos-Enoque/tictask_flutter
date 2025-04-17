@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tictask/app/theme/dimensions.dart';
-import 'package:tictask/features/timer/bloc/timer_bloc.dart';
+import 'package:tictask/features/timer/presentation/bloc/timer_bloc.dart';
 
 class TimerControls extends StatelessWidget {
   final TimerUIStatus status;

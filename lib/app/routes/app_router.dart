@@ -11,7 +11,7 @@ import 'package:tictask/core/services/window_service.dart';
 import 'package:tictask/features/auth/presentation/screens/login_screen.dart';
 import 'package:tictask/features/google_calendar/screens/calendar_settings_screen.dart';
 import 'package:tictask/features/settings/screens/window_settings_screen.dart';
-import 'package:tictask/features/timer/screens/timer_screen.dart';
+import 'package:tictask/features/timer/presentation/screens/timer_screen.dart';
 import 'package:tictask/features/settings/screens/timer_settings_screen.dart';
 import 'package:get_it/get_it.dart';
 

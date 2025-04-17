@@ -1,12 +1,16 @@
+// lib/features/timer/domain/entities/timer_session_entity.dart
 import 'package:equatable/equatable.dart';
+import 'package:uuid/uuid.dart';
 
+/// Type of timer session
 enum SessionType {
   pomodoro,
   shortBreak,
   longBreak
 }
 
-class TimerSession extends Equatable {
+/// Entity class for timer sessions
+class TimerSessionEntity extends Equatable {
   final String id;
   final DateTime date;
   final int startTime; // Unix timestamp
@@ -16,7 +20,7 @@ class TimerSession extends Equatable {
   final bool completed;
   final String? taskId;
 
-  const TimerSession({
+  const TimerSessionEntity({
     required this.id,
     required this.date,
     required this.startTime,
@@ -28,17 +32,18 @@ class TimerSession extends Equatable {
   });
 
   // Factory method to create a completed session
-  factory TimerSession.completed({
-    required String id,
+  static TimerSessionEntity completed({
     required int startTime,
     required int endTime,
     required int duration,
     required SessionType type,
     String? taskId,
+    String? id,
+    DateTime? date,
   }) {
-    return TimerSession(
-      id: id,
-      date: DateTime.now(),
+    return TimerSessionEntity(
+      id: id ?? const Uuid().v4(),
+      date: date ?? DateTime.now(),
       startTime: startTime,
       endTime: endTime,
       duration: duration,
@@ -49,17 +54,18 @@ class TimerSession extends Equatable {
   }
 
   // Factory method to create an interrupted session
-  factory TimerSession.interrupted({
-    required String id,
+  static TimerSessionEntity interrupted({
     required int startTime,
     required int endTime,
     required int duration,
     required SessionType type,
     String? taskId,
+    String? id,
+    DateTime? date,
   }) {
-    return TimerSession(
-      id: id,
-      date: DateTime.now(),
+    return TimerSessionEntity(
+      id: id ?? const Uuid().v4(),
+      date: date ?? DateTime.now(),
       startTime: startTime,
       endTime: endTime,
       duration: duration,

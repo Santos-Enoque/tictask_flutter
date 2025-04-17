@@ -16,8 +16,8 @@ import 'package:tictask/features/tasks/domain/entities/task.dart'
 import 'package:tictask/features/tasks/models/task.dart' as task_model;
 import 'package:tictask/features/tasks/presentation/widgets/date_scroll_picker.dart';
 import 'package:tictask/features/tasks/presentation/widgets/task_form_sheet.dart';
-import 'package:tictask/features/timer/bloc/timer_bloc.dart';
-import 'package:tictask/features/timer/screens/timer_screen.dart';
+import 'package:tictask/features/timer/presentation/bloc/timer_bloc.dart';
+import 'package:tictask/features/timer/presentation/screens/timer_screen.dart';
 
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key, this.showNavBar = true});

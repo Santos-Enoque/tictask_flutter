@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tictask/app/theme/dimensions.dart';
-import 'package:tictask/features/timer/bloc/timer_bloc.dart';
+import 'package:tictask/features/timer/presentation/bloc/timer_bloc.dart';
 import 'package:tictask/features/timer/models/timer_config.dart';
 import 'package:tictask/features/timer/repositories/timer_repository.dart';
 import 'package:tictask/injection_container.dart';

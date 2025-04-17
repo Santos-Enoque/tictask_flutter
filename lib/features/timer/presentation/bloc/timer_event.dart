@@ -42,7 +42,7 @@ class TimerTicked extends TimerEvent {
 }
 
 class TimerConfigChanged extends TimerEvent {
-  final TimerConfig config;
+  final TimerConfigEntity config;
 
   const TimerConfigChanged({required this.config});
 

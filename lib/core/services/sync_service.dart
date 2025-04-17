@@ -1,13 +1,13 @@
+// lib/core/services/sync_service.dart
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tictask/core/services/auth_service.dart';
 import 'package:tictask/features/projects/repositories/syncable_project_repository.dart';
 import 'package:tictask/features/tasks/repositories/syncable_task_repository.dart';
-import 'package:tictask/features/timer/repositories/syncable_timer_repository.dart';
-import 'package:tictask/injection_container.dart';
+import 'package:tictask/features/timer/domain/repositories/i_syncable_timer_repository.dart';
+import 'package:tictask/core/utils/logger.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Status of synchronization
 enum SyncStatus {
@@ -31,13 +31,12 @@ enum SyncStatus {
 class SyncService {
   // Dependencies
   final AuthService _authService;
-  final SupabaseClient _supabase = Supabase.instance.client;
   final Connectivity _connectivity = Connectivity();
 
   // Repositories to sync
   late final SyncableTaskRepository _taskRepository;
   late final SyncableProjectRepository _projectRepository;
-  late final SyncableTimerRepository _timerRepository;
+  late final ISyncableTimerRepository _timerRepository;
 
   // Internal state
   SyncStatus _status = SyncStatus.idle;
@@ -72,11 +71,6 @@ class SyncService {
       _lastSyncTime = DateTime.fromMillisecondsSinceEpoch(lastSyncTimeMillis);
     }
 
-    // Get repositories
-    _taskRepository = sl<SyncableTaskRepository>();
-    _projectRepository = sl<SyncableProjectRepository>();
-    _timerRepository = sl<SyncableTimerRepository>();
-
     // Set up connectivity monitoring
     _connectivitySubscription =
         _connectivity.onConnectivityChanged.listen(_handleConnectivityChange);
@@ -90,8 +84,8 @@ class SyncService {
   }
 
   // Handle connectivity changes
-  void _handleConnectivityChange(List<ConnectivityResult> results) {
-    if (results.contains(ConnectivityResult.none)) {
+  void _handleConnectivityChange(ConnectivityResult result) {
+    if (result == ConnectivityResult.none) {
       _status = SyncStatus.offline;
       _syncStatusController.add(_status);
       _cancelBackgroundSync();
@@ -134,22 +128,15 @@ class SyncService {
     _syncTimer = null;
   }
 
-// Add this to your SyncService class
-  Future<bool> verifyDatabaseSchema() async {
-    try {
-      // Check if tables exist
-      final projectsTable =
-          await _supabase.from('projects').select('id').limit(1);
-      final tasksTable = await _supabase.from('tasks').select('id').limit(1);
-      final timerSessionsTable =
-          await _supabase.from('timer_sessions').select('id').limit(1);
-
-      debugPrint('Database validation completed successfully');
-      return true;
-    } catch (e) {
-      debugPrint('Database schema error: $e');
-      return false;
-    }
+  // Set repositories 
+  void setRepositories({
+    required SyncableTaskRepository taskRepository,
+    required SyncableProjectRepository projectRepository,
+    required ISyncableTimerRepository timerRepository,
+  }) {
+    _taskRepository = taskRepository;
+    _projectRepository = projectRepository;
+    _timerRepository = timerRepository;
   }
 
   // Sync all data
@@ -195,7 +182,7 @@ class SyncService {
       _isSyncing = false;
       return true;
     } catch (e) {
-      debugPrint('Sync error: $e');
+      AppLogger.e('Sync error: $e');
       _status = SyncStatus.failed;
       _syncStatusController.add(_status);
       _isSyncing = false;
@@ -212,20 +199,19 @@ class SyncService {
       await _taskRepository.pullChanges();
       await _timerRepository.pullChanges();
     } catch (e) {
-      debugPrint('Error pulling changes: $e');
+      AppLogger.e('Error pulling changes: $e');
       throw Exception('Failed to pull changes: $e');
     }
   }
 
   // Push changes to server
-// Add call to sync Inbox project in pushChanges method
   Future<void> _pushChanges() async {
     try {
       // First try to sync the Inbox project specifically
       try {
         await _projectRepository.syncInboxProject();
       } catch (e) {
-        debugPrint('Warning: Failed to sync Inbox project: $e');
+        AppLogger.w('Warning: Failed to sync Inbox project: $e');
         // Continue with other syncs even if Inbox sync fails
       }
 
@@ -234,29 +220,13 @@ class SyncService {
       await _taskRepository.pushChanges();
       await _timerRepository.pushChanges();
 
-      // NEW: Also sync timer configuration
-    await _syncTimerConfigs();
+      // Also sync timer configuration
+      await _timerRepository.syncTimerConfig();
     } catch (e) {
-      debugPrint('Error pushing changes: $e');
+      AppLogger.e('Error pushing changes: $e');
       throw Exception('Failed to push changes: $e');
     }
   }
-
-  // Add this new helper method to sync timer configs
-Future<void> _syncTimerConfigs() async {
-  // Skip if not authenticated
-  if (!_authService.isAuthenticated) return;
-
-  try {
-    // Sync timer config
-    await _timerRepository.syncTimerConfig();
-    debugPrint('Timer config synced successfully');
-  } catch (e) {
-    debugPrint('Error syncing timer configs: $e');
-    // Don't throw an exception here to avoid interrupting the sync process
-  }
-}
-
 
   // Restart background sync (called when settings change)
   void restartBackgroundSync() {

@@ -1,22 +1,22 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'timer_config.dart';
+part of 'timer_config_model.dart';
 
 // **************************************************************************
 // TypeAdapterGenerator
 // **************************************************************************
 
-class TimerConfigAdapter extends TypeAdapter<TimerConfig> {
+class TimerConfigModelAdapter extends TypeAdapter<TimerConfigModel> {
   @override
   final int typeId = 1;
 
   @override
-  TimerConfig read(BinaryReader reader) {
+  TimerConfigModel read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return TimerConfig(
+    return TimerConfigModel(
       id: fields[0] as String,
       pomoDuration: fields[1] as int,
       shortBreakDuration: fields[2] as int,
@@ -26,7 +26,7 @@ class TimerConfigAdapter extends TypeAdapter<TimerConfig> {
   }
 
   @override
-  void write(BinaryWriter writer, TimerConfig obj) {
+  void write(BinaryWriter writer, TimerConfigModel obj) {
     writer
       ..writeByte(5)
       ..writeByte(0)
@@ -47,7 +47,7 @@ class TimerConfigAdapter extends TypeAdapter<TimerConfig> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is TimerConfigAdapter &&
+      other is TimerConfigModelAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

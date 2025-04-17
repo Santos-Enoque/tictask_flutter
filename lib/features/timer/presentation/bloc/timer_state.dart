@@ -12,7 +12,7 @@ enum TimerUIStatus {
 class TimerState extends Equatable {
   final TimerUIStatus status;
   final int timeRemaining;
-  final TimerConfig config;
+  final TimerConfigEntity config;
   final int pomodorosCompleted;
   final String? currentTaskId;
   final TimerMode timerMode;
@@ -22,7 +22,7 @@ class TimerState extends Equatable {
   const TimerState({
     this.status = TimerUIStatus.initial,
     this.timeRemaining = 25 * 60, // Default is 25 minutes
-    this.config = const TimerConfig(),
+    this.config = const TimerConfigEntity(),
     this.pomodorosCompleted = 0,
     this.currentTaskId,
     this.timerMode = TimerMode.focus,
@@ -33,7 +33,7 @@ class TimerState extends Equatable {
   TimerState copyWith({
     TimerUIStatus? status,
     int? timeRemaining,
-    TimerConfig? config,
+    TimerConfigEntity? config,
     int? pomodorosCompleted,
     String? currentTaskId,
     TimerMode? timerMode,
@@ -62,20 +62,22 @@ class TimerState extends Equatable {
     return (elapsed / totalDuration).clamp(0.0, 1.0);
   }
 
-  // Factory method to create state from model
-  factory TimerState.fromModel({
-    required TimerStateModel model,
-    required TimerConfig config,
+  // Factory method to create state from entity
+  factory TimerState.fromEntity({
+    required TimerEntity entity,
+    required TimerConfigEntity config,
     required int todaysPomodoros,
   }) {
     TimerUIStatus status;
     
-    switch (model.status) {
+    switch (entity.status) {
       case TimerStatus.idle:
         status = TimerUIStatus.initial;
         break;
       case TimerStatus.running:
-        status = TimerUIStatus.running;
+        status = entity.timerMode == TimerMode.focus 
+            ? TimerUIStatus.running 
+            : TimerUIStatus.breakRunning;
         break;
       case TimerStatus.paused:
         status = TimerUIStatus.paused;
@@ -86,25 +88,25 @@ class TimerState extends Equatable {
     }
 
     // Calculate total duration based on timer mode
-    final totalDuration = model.timerMode == TimerMode.focus
+    final totalDuration = entity.timerMode == TimerMode.focus
         ? config.pomoDuration
-        : model.pomodorosCompleted % config.longBreakInterval == 0
+        : entity.pomodorosCompleted % config.longBreakInterval == 0
             ? config.longBreakDuration
             : config.shortBreakDuration;
 
     // Calculate progress
     final progress = calculateProgress(
-      timeRemaining: model.timeRemaining,
+      timeRemaining: entity.timeRemaining,
       totalDuration: totalDuration,
     );
 
     return TimerState(
       status: status,
-      timeRemaining: model.timeRemaining,
+      timeRemaining: entity.timeRemaining,
       config: config,
-      pomodorosCompleted: model.pomodorosCompleted,
-      currentTaskId: model.currentTaskId,
-      timerMode: model.timerMode,
+      pomodorosCompleted: entity.pomodorosCompleted,
+      currentTaskId: entity.currentTaskId,
+      timerMode: entity.timerMode,
       todaysPomodoros: todaysPomodoros,
       progress: progress,
     );

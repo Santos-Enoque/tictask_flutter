@@ -1,48 +1,38 @@
 import 'package:flutter/foundation.dart';
-import 'package:tictask/app/repositories/syncable_repository.dart';
-import 'package:tictask/features/timer/domain/entities/timer_session.dart';
+import 'package:tictask/features/timer/domain/entities/timer_session_entity.dart';
 import 'package:tictask/features/timer/domain/repositories/i_timer_repository.dart';
 
-/// Interface extending ITimerRepository with sync capabilities
-abstract class ISyncableTimerRepository extends ITimerRepository implements SyncableRepository<TimerSession> {
-  /// ValueNotifier for syncing state
-  ValueNotifier<bool> get isSyncing;
-  
-  /// ValueNotifier for sync errors
-  ValueNotifier<bool> get hasSyncErrors;
-  
-  /// ValueNotifier for last sync error message
-  ValueNotifier<String?> get lastSyncError;
-  
+/// Interface for timer repository with sync capabilities
+abstract class ISyncableTimerRepository extends ITimerRepository {
   /// Push local changes to remote
-  @override
   Future<int> pushChanges();
   
-  /// Pull remote changes
-  @override
+  /// Pull remote changes to local
   Future<int> pullChanges();
   
   /// Resolve conflicts between local and remote data
-  @override
   Future<int> resolveConflicts();
   
-  /// Get the timestamp of the last sync
-  @override
+  /// Get last sync time
   Future<DateTime?> getLastSyncTime();
   
-  /// Set the timestamp of the last sync
-  @override
+  /// Set last sync time
   Future<void> setLastSyncTime(DateTime time);
   
-  /// Check if there are pending changes to sync
-  @override
+  /// Check if has pending changes
   Future<bool> hasPendingChanges();
   
-  /// Get locally modified records since last sync
-  @override
-  Future<List<TimerSession>> getLocalModifiedRecords();
+  /// Get locally modified records
+  Future<List<TimerSessionEntity>> getLocalModifiedRecords();
   
-  /// Get remotely modified records since last sync
-  @override
-  Future<List<TimerSession>> getRemoteModifiedRecords();
+  /// Get remotely modified records
+  Future<List<TimerSessionEntity>> getRemoteModifiedRecords();
+  
+  /// Sync timer configuration
+  Future<void> syncTimerConfig();
+  
+  /// Get notifiers for sync state
+  ValueNotifier<bool> get isSyncing;
+  ValueNotifier<bool> get hasSyncErrors;
+  ValueNotifier<String?> get lastSyncError;
 }

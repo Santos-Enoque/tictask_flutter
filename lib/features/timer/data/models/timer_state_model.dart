@@ -1,34 +1,10 @@
 import 'package:hive/hive.dart';
-import 'package:tictask/features/timer/domain/entities/timer_state.dart';
+import 'package:tictask/features/timer/domain/entities/timer_entity.dart';
 
 part 'timer_state_model.g.dart';
 
-@HiveType(typeId: 4)
-enum TimerStatusModel {
-  @HiveField(0)
-  idle,
-
-  @HiveField(1)
-  running,
-
-  @HiveField(2)
-  paused,
-
-  @HiveField(3)
-  break_,
-}
-
-@HiveType(typeId: 5)
-enum TimerModeModel {
-  @HiveField(0)
-  focus,
-
-  @HiveField(1)
-  break_,
-}
-
 @HiveType(typeId: 3)
-class TimerStateModel extends TimerState {
+class TimerStateModel extends TimerEntity {
   @HiveField(0)
   @override
   final String id;
@@ -38,7 +14,8 @@ class TimerStateModel extends TimerState {
   final int timeRemaining;
 
   @HiveField(2)
-  final TimerStatusModel statusModel;
+  @override
+  final TimerStatus status;
 
   @HiveField(3)
   @override
@@ -53,89 +30,28 @@ class TimerStateModel extends TimerState {
   final int lastUpdateTime;
 
   @HiveField(6)
-  final TimerModeModel timerModeModel;
+  @override
+  final TimerMode timerMode;
 
-  TimerStateModel({
+  const TimerStateModel({
     this.id = 'default',
-    this.timeRemaining = 25 * 60,
-    this.statusModel = TimerStatusModel.idle,
+    this.timeRemaining = 25 * 60, // 25 minutes by default
+    this.status = TimerStatus.idle,
     this.pomodorosCompleted = 0,
     this.currentTaskId,
     this.lastUpdateTime = 0,
-    this.timerModeModel = TimerModeModel.focus,
+    this.timerMode = TimerMode.focus,
   }) : super(
           id: id,
           timeRemaining: timeRemaining,
-          status: _mapStatusModelToDomain(statusModel),
+          status: status,
           pomodorosCompleted: pomodorosCompleted,
           currentTaskId: currentTaskId,
           lastUpdateTime: lastUpdateTime,
-          timerMode: _mapModeModelToDomain(timerModeModel),
+          timerMode: timerMode,
         );
 
-  // Map status model to domain
-  static TimerStatus _mapStatusModelToDomain(TimerStatusModel statusModel) {
-    switch (statusModel) {
-      case TimerStatusModel.idle:
-        return TimerStatus.idle;
-      case TimerStatusModel.running:
-        return TimerStatus.running;
-      case TimerStatusModel.paused:
-        return TimerStatus.paused;
-      case TimerStatusModel.break_:
-        return TimerStatus.break_;
-    }
-  }
-
-  // Map mode model to domain
-  static TimerMode _mapModeModelToDomain(TimerModeModel modeModel) {
-    switch (modeModel) {
-      case TimerModeModel.focus:
-        return TimerMode.focus;
-      case TimerModeModel.break_:
-        return TimerMode.break_;
-    }
-  }
-
-  // Map domain status to model
-  static TimerStatusModel _mapStatusDomainToModel(TimerStatus status) {
-    switch (status) {
-      case TimerStatus.idle:
-        return TimerStatusModel.idle;
-      case TimerStatus.running:
-        return TimerStatusModel.running;
-      case TimerStatus.paused:
-        return TimerStatusModel.paused;
-      case TimerStatus.break_:
-        return TimerStatusModel.break_;
-    }
-  }
-
-  // Map domain mode to model
-  static TimerModeModel _mapModeDomainToModel(TimerMode mode) {
-    switch (mode) {
-      case TimerMode.focus:
-        return TimerModeModel.focus;
-      case TimerMode.break_:
-        return TimerModeModel.break_;
-    }
-  }
-
-  // Create from domain entity
-  factory TimerStateModel.fromEntity(TimerState entity) {
-    return TimerStateModel(
-      id: entity.id,
-      timeRemaining: entity.timeRemaining,
-      statusModel: _mapStatusDomainToModel(entity.status),
-      pomodorosCompleted: entity.pomodorosCompleted,
-      currentTaskId: entity.currentTaskId,
-      lastUpdateTime: entity.lastUpdateTime,
-      timerModeModel: _mapModeDomainToModel(entity.timerMode),
-    );
-  }
-
-  // Override copyWith to return TimerStateModel
-  @override
+  // Create a copy with updated fields
   TimerStateModel copyWith({
     String? id,
     int? timeRemaining,
@@ -148,15 +64,27 @@ class TimerStateModel extends TimerState {
     return TimerStateModel(
       id: id ?? this.id,
       timeRemaining: timeRemaining ?? this.timeRemaining,
-      statusModel: status != null
-          ? _mapStatusDomainToModel(status)
-          : statusModel,
+      status: status ?? this.status,
       pomodorosCompleted: pomodorosCompleted ?? this.pomodorosCompleted,
       currentTaskId: currentTaskId ?? this.currentTaskId,
       lastUpdateTime: lastUpdateTime ?? this.lastUpdateTime,
-      timerModeModel: timerMode != null
-          ? _mapModeDomainToModel(timerMode)
-          : timerModeModel,
+      timerMode: timerMode ?? this.timerMode,
+    );
+  }
+
+  // Default state
+  static const TimerStateModel defaultState = TimerStateModel();
+
+  // Factory to create from domain entity
+  factory TimerStateModel.fromEntity(TimerEntity entity) {
+    return TimerStateModel(
+      id: entity.id,
+      timeRemaining: entity.timeRemaining,
+      status: entity.status,
+      pomodorosCompleted: entity.pomodorosCompleted,
+      currentTaskId: entity.currentTaskId,
+      lastUpdateTime: entity.lastUpdateTime,
+      timerMode: entity.timerMode,
     );
   }
 }

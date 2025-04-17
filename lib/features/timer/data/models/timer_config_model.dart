@@ -1,10 +1,10 @@
 import 'package:hive/hive.dart';
-import 'package:tictask/features/timer/domain/entities/timer_config.dart';
+import 'package:tictask/features/timer/domain/entities/timer_config_entity.dart';
 
 part 'timer_config_model.g.dart';
 
 @HiveType(typeId: 1)
-class TimerConfigModel extends TimerConfig {
+class TimerConfigModel extends TimerConfigEntity {
   @HiveField(0)
   @override
   final String id;
@@ -39,41 +39,7 @@ class TimerConfigModel extends TimerConfig {
           longBreakInterval: longBreakInterval,
         );
 
-  // Create from domain entity
-  factory TimerConfigModel.fromEntity(TimerConfig entity) {
-    return TimerConfigModel(
-      id: entity.id,
-      pomoDuration: entity.pomoDuration,
-      shortBreakDuration: entity.shortBreakDuration,
-      longBreakDuration: entity.longBreakDuration,
-      longBreakInterval: entity.longBreakInterval,
-    );
-  }
-
-  // Create from JSON
-  factory TimerConfigModel.fromJson(Map<String, dynamic> json) {
-    return TimerConfigModel(
-      id: json['id'] as String,
-      pomoDuration: json['pomo_duration'] as int,
-      shortBreakDuration: json['short_break_duration'] as int,
-      longBreakDuration: json['long_break_duration'] as int,
-      longBreakInterval: json['long_break_interval'] as int,
-    );
-  }
-
-  // Convert to JSON for API
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'pomo_duration': pomoDuration,
-      'short_break_duration': shortBreakDuration,
-      'long_break_duration': longBreakDuration,
-      'long_break_interval': longBreakInterval,
-    };
-  }
-
-  // Override copyWith to return TimerConfigModel
-  @override
+  // Create a copy with updated fields
   TimerConfigModel copyWith({
     String? id,
     int? pomoDuration,
@@ -87,6 +53,43 @@ class TimerConfigModel extends TimerConfig {
       shortBreakDuration: shortBreakDuration ?? this.shortBreakDuration,
       longBreakDuration: longBreakDuration ?? this.longBreakDuration,
       longBreakInterval: longBreakInterval ?? this.longBreakInterval,
+    );
+  }
+
+  // Default config
+  static const TimerConfigModel defaultConfig = TimerConfigModel();
+
+  // Factory to create from domain entity
+  factory TimerConfigModel.fromEntity(TimerConfigEntity entity) {
+    return TimerConfigModel(
+      id: entity.id,
+      pomoDuration: entity.pomoDuration,
+      shortBreakDuration: entity.shortBreakDuration,
+      longBreakDuration: entity.longBreakDuration,
+      longBreakInterval: entity.longBreakInterval,
+    );
+  }
+
+  // Convert to map for API
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'pomo_duration': pomoDuration,
+      'short_break_duration': shortBreakDuration,
+      'long_break_duration': longBreakDuration,
+      'long_break_interval': longBreakInterval,
+      'updated_at': DateTime.now().millisecondsSinceEpoch,
+    };
+  }
+
+  // Create from map from API
+  factory TimerConfigModel.fromJson(Map<String, dynamic> json) {
+    return TimerConfigModel(
+      id: json['id'] as String,
+      pomoDuration: json['pomo_duration'] as int,
+      shortBreakDuration: json['short_break_duration'] as int,
+      longBreakDuration: json['long_break_duration'] as int,
+      longBreakInterval: json['long_break_interval'] as int,
     );
   }
 }

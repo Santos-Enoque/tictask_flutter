@@ -13,10 +13,8 @@ import 'package:tictask/features/projects/widgets/project_form_sheet.dart';
 import 'package:tictask/features/tasks/presentation/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
 import 'package:tictask/features/tasks/repositories/task_repository.dart';
-import 'package:tictask/features/timer/bloc/timer_bloc.dart';
-import 'package:tictask/features/timer/models/models.dart';
-import 'package:tictask/features/timer/repositories/timer_repository.dart';
-import 'package:tictask/features/timer/widgets/widgets.dart';
+import 'package:tictask/features/timer/presentation/bloc/timer_bloc.dart';
+import 'package:tictask/features/timer/presentation/widgets/widgets.dart';
 import 'package:tictask/injection_container.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -414,7 +412,7 @@ class _TimerScreenState extends State<TimerScreen> {
           String statusText;
           Color statusColor;
 
-          if (state.timerMode == TimerMode.focus) {
+          if (state.timerMode == domain.TimerMode.focus) {
             statusText = 'Focus Time';
             statusColor = Theme.of(context).colorScheme.primary;
           } else {
@@ -560,7 +558,7 @@ class _TimerScreenState extends State<TimerScreen> {
           String statusText;
           Color statusColor;
 
-          if (state.timerMode == TimerMode.focus) {
+          if (state.timerMode == domain.TimerMode.focus) {
             statusText = 'Focus Time';
             statusColor = Theme.of(context).colorScheme.primary;
           } else {
@@ -648,7 +646,7 @@ class _TimerScreenState extends State<TimerScreen> {
           String statusText;
           Color statusColor;
 
-          if (state.timerMode == TimerMode.focus) {
+          if (state.timerMode == domain.TimerMode.focus) {
             statusText = 'Focus';
             statusColor = Theme.of(context).colorScheme.primary;
           } else {
@@ -1124,7 +1122,7 @@ class _TimerScreenState extends State<TimerScreen> {
     if (state.status == TimerUIStatus.finished ||
         state.status == TimerUIStatus.breakReady) {
       // Focus ended, show break options
-      if (state.timerMode == TimerMode.focus) {
+      if (state.timerMode == domain.TimerMode.focus) {
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -1342,18 +1340,18 @@ class _TimerScreenState extends State<TimerScreen> {
       children: [
         IconButton(
           icon: const Icon(Icons.play_arrow),
-          onPressed: () => state.timerMode == TimerMode.focus
+          onPressed: () => state.timerMode == domain.TimerMode.focus
               ? context.read<TimerBloc>().add(const TimerStarted())
               : context.read<TimerBloc>().add(const TimerBreakStarted()),
           iconSize: 28,
-          color: state.timerMode == TimerMode.focus
+          color: state.timerMode == domain.TimerMode.focus
               ? primaryColor
               : secondaryColor,
         ),
         const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.skip_next),
-          onPressed: () => state.timerMode == TimerMode.focus
+          onPressed: () => state.timerMode == domain.TimerMode.focus
               ? context.read<TimerBloc>().add(const TimerBreakStarted())
               : context.read<TimerBloc>().add(const TimerBreakSkipped()),
           iconSize: 28,

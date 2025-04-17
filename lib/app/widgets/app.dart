@@ -11,7 +11,7 @@ import 'package:tictask/features/projects/bloc/project_bloc.dart';
 import 'package:tictask/features/projects/repositories/project_repository.dart';
 import 'package:tictask/features/tasks/presentation/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/repositories/task_repository.dart';
-import 'package:tictask/features/timer/bloc/timer_bloc.dart';
+import 'package:tictask/features/timer/presentation/bloc/timer_bloc.dart';
 import 'package:tictask/injection_container.dart';
 
 /// Main application widget

@@ -1,45 +1,36 @@
-import 'package:tictask/features/timer/domain/entities/timer_config.dart';
-import 'package:tictask/features/timer/domain/entities/timer_session.dart';
-import 'package:tictask/features/timer/domain/entities/timer_state.dart';
+import 'package:tictask/features/timer/domain/entities/timer_config_entity.dart';
+import 'package:tictask/features/timer/domain/entities/timer_entity.dart';
+import 'package:tictask/features/timer/domain/entities/timer_session_entity.dart';
 
-/// Interface defining timer repository operations
+/// Interface for timer repository
 abstract class ITimerRepository {
-  /// Initialize the repository
-  Future<void> init();
-  
-  /// Get timer configuration
-  Future<TimerConfig> getTimerConfig();
+  /// Get the current timer configuration
+  Future<TimerConfigEntity> getTimerConfig();
   
   /// Save timer configuration
-  Future<void> saveTimerConfig(TimerConfig config);
+  Future<void> saveTimerConfig(TimerConfigEntity config);
   
-  /// Get current timer state
-  Future<TimerState> getTimerState();
+  /// Get the current timer state
+  Future<TimerEntity> getTimerState();
   
   /// Update timer state
-  Future<TimerState> updateTimerState(TimerState state);
+  Future<TimerEntity> updateTimerState(TimerEntity state);
   
-  /// Save a timer session
-  Future<void> saveSession(TimerSession session);
+  /// Save completed or interrupted session
+  Future<void> saveSession(TimerSessionEntity session);
   
-  /// Get sessions within a date range
-  Future<List<TimerSession>> getSessionsByDateRange(
+  /// Get sessions for a specific date range
+  Future<List<TimerSessionEntity>> getSessionsByDateRange(
     DateTime startDate,
     DateTime endDate,
   );
   
-  /// Get today's sessions
-  Future<List<TimerSession>> getTodaysSessions();
+  /// Get sessions for today
+  Future<List<TimerSessionEntity>> getTodaysSessions();
   
   /// Get count of completed pomodoros today
   Future<int> getCompletedPomodoroCountToday();
   
-  /// Get total completed pomodoros
+  /// Get total count of completed pomodoros
   Future<int> getTotalCompletedPomodoros();
-  
-  /// Sync timer configuration with remote
-  Future<void> syncTimerConfig();
-  
-  /// Close the repository and clean up resources
-  Future<void> close();
 }
