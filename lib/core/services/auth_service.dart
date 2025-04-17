@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tictask/app/services/sync_service.dart';
+import 'package:tictask/core/services/sync_service.dart';
 import 'package:tictask/injection_container.dart';
 
 /// Service for handling user authentication using Supabase

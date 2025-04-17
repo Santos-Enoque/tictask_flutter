@@ -134,14 +134,19 @@ class NotificationService {
           sound: _soundsEnabled
               ? AssetsLinuxSound('assets/sounds/bell.wav')
               : null,
-          macOS: Platform.isMacOS
-              ? DarwinNotificationDetails(
-                  presentAlert: true,
-                  presentBadge: true,
-                  presentSound: _soundsEnabled,
-                  sound: 'bell.wav',
-                )
-              : null,
+        );
+
+        final DarwinNotificationDetails darwinDetails =
+            DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: _soundsEnabled,
+          sound: 'bell.wav',
+        );
+
+        final notificationDetails = NotificationDetails(
+          linux: linuxDetails,
+          macOS: darwinDetails,
         );
 
         await _notificationsPlugin.show(
@@ -172,13 +177,17 @@ class NotificationService {
         //   html.Notification(
         //     title,
         //     body: body,
-          // );
+        // );
         // }
       } else if (Platform.isLinux) {
         final LinuxNotificationDetails linuxDetails = LinuxNotificationDetails(
           urgency: LinuxNotificationUrgency.normal,
           category: LinuxNotificationCategory.device,
           sound: _soundsEnabled ? ThemeLinuxSound('message') : null,
+        );
+
+        final notificationDetails = NotificationDetails(
+          linux: linuxDetails,
         );
 
         await _notificationsPlugin.show(

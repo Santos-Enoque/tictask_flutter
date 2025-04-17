@@ -3,7 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:tictask/features/calendar/screens/calendar_screen.dart';
 import 'package:tictask/features/settings/screens/settings_screen.dart';
 import 'package:tictask/features/stats/screens/stats_screen.dart';
-import 'package:tictask/features/tasks/screens/tasks_screen.dart';
+import 'package:tictask/features/tasks/presentation/screens/tasks_screen.dart';
 import 'package:tictask/features/timer/screens/timer_screen.dart';
 
 class HomeScreen extends StatefulWidget {

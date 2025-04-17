@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tictask/app/constants/app_constants.dart';
 import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/features/tasks/models/task.dart';
-import 'package:tictask/app/services/auth_service.dart';
+import 'package:tictask/core/services/auth_service.dart';
 import 'package:tictask/app/repositories/syncable_repository.dart';
 import 'package:tictask/features/tasks/repositories/task_repository.dart';
 

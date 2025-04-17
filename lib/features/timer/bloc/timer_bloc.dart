@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:tictask/app/services/notification_service.dart';
+import 'package:tictask/core/services/notification_service.dart';
 import 'package:tictask/features/tasks/repositories/task_repository.dart';
 import 'package:tictask/features/timer/models/models.dart';
 import 'package:tictask/features/timer/repositories/timer_repository.dart';

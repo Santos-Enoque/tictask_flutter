@@ -5,9 +5,9 @@ import 'package:flutter/widgets.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tictask/app/constants/app_constants.dart';
-import 'package:tictask/app/services/init_supabase.dart';
-import 'package:tictask/app/services/notification_service.dart';
-import 'package:tictask/app/services/window_service.dart';
+import 'package:tictask/core/services/init_supabase.dart';
+import 'package:tictask/core/services/notification_service.dart';
+import 'package:tictask/core/services/window_service.dart';
 import 'package:tictask/core/utils/logger.dart';
 import 'package:tictask/features/google_calendar/google_calendar_module.dart'; // Add this import
 import 'package:tictask/injection_container.dart' as di;

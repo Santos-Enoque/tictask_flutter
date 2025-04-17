@@ -10,10 +10,10 @@ import 'package:tictask/app/widgets/app_scaffold.dart';
 import 'package:tictask/core/utils/logger.dart';
 import 'package:tictask/features/projects/models/project.dart';
 import 'package:tictask/features/projects/repositories/project_repository.dart';
-import 'package:tictask/features/tasks/bloc/task_bloc.dart';
+import 'package:tictask/features/tasks/presentation/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
-import 'package:tictask/features/tasks/widgets/date_scroll_picker.dart';
-import 'package:tictask/features/tasks/widgets/task_form_sheet.dart';
+import 'package:tictask/features/tasks/presentation/widgets/date_scroll_picker.dart';
+import 'package:tictask/features/tasks/presentation/widgets/task_form_sheet.dart';
 import 'package:tictask/features/timer/bloc/timer_bloc.dart';
 import 'package:tictask/features/timer/screens/timer_screen.dart';
 

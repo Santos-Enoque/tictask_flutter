@@ -3,7 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tictask/app/constants/app_constants.dart';
-import 'package:tictask/app/services/auth_service.dart';
+import 'package:tictask/core/services/auth_service.dart';
 import 'package:tictask/app/repositories/syncable_repository.dart';
 import 'package:tictask/core/utils/logger.dart';
 import 'package:tictask/features/timer/models/models.dart';

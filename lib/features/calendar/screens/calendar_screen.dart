@@ -4,11 +4,11 @@ import 'package:get_it/get_it.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
 import 'package:tictask/features/projects/models/project.dart';
 import 'package:tictask/features/projects/repositories/project_repository.dart';
-import 'package:tictask/features/tasks/bloc/task_bloc.dart';
+import 'package:tictask/features/tasks/presentation/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
 import 'package:tictask/features/tasks/repositories/task_repository.dart';
-import 'package:tictask/features/tasks/widgets/date_scroll_picker.dart';
-import 'package:tictask/features/tasks/widgets/task_form_sheet.dart';
+import 'package:tictask/features/tasks/presentation/widgets/date_scroll_picker.dart';
+import 'package:tictask/features/tasks/presentation/widgets/task_form_sheet.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key, this.showNavBar = true});

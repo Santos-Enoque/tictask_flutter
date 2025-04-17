@@ -1,15 +1,21 @@
+// lib/features/tasks/presentation/bloc/task_bloc.dart
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:tictask/features/tasks/models/task.dart';
-import 'package:tictask/features/tasks/repositories/task_repository.dart';
+import 'package:uuid/uuid.dart';
+import '../../domain/entities/task.dart';
+import '../../domain/repositories/task_repository.dart';
 
 part 'task_event.dart';
 part 'task_state.dart';
 
 class TaskBloc extends Bloc<TaskEvent, TaskState> {
-  TaskBloc({required TaskRepository taskRepository})
-      : _taskRepository = taskRepository,
-        super(TaskInitial()) {
+  final TaskRepository taskRepository;
+  final Uuid uuid;
+
+  TaskBloc({
+    required this.taskRepository,
+    required this.uuid,
+  }) : super(TaskInitial()) {
     on<LoadTasks>(_onLoadTasks);
     on<LoadTasksByDate>(_onLoadTasksByDate);
     on<LoadTasksInRange>(_onLoadTasksInRange);
@@ -21,15 +27,13 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     on<IncrementTaskPomodoro>(_onIncrementTaskPomodoro);
   }
 
-  final TaskRepository _taskRepository;
-
-  // Expose repository for direct access when needed
-  TaskRepository get repository => _taskRepository;
-
-  Future<void> _onLoadTasks(LoadTasks event, Emitter<TaskState> emit) async {
+  Future<void> _onLoadTasks(
+    LoadTasks event,
+    Emitter<TaskState> emit,
+  ) async {
     emit(TaskLoading());
     try {
-      final tasks = await _taskRepository.getAllTasks();
+      final tasks = await taskRepository.getAllTasks();
       emit(TaskLoaded(tasks));
     } catch (e) {
       emit(TaskError('Failed to load tasks: $e'));
@@ -42,12 +46,13 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
   ) async {
     emit(TaskLoading());
     try {
-      final tasks = await _taskRepository.getTasksForDate(event.date);
+      final tasks = await taskRepository.getTasksForDate(event.date);
 
       // Filter by project if specified
       if (event.projectId != null) {
-        final filteredTasks =
-            tasks.where((task) => task.projectId == event.projectId).toList();
+        final filteredTasks = tasks
+            .where((task) => task.projectId == event.projectId)
+            .toList();
         emit(TaskLoaded(filteredTasks));
       } else {
         emit(TaskLoaded(tasks));
@@ -56,22 +61,22 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
       emit(TaskError('Failed to load tasks for date: $e'));
     }
   }
-
-  Future<void> _onLoadTasksInRange(
+ Future<void> _onLoadTasksInRange(
     LoadTasksInRange event,
     Emitter<TaskState> emit,
   ) async {
     emit(TaskLoading());
     try {
-      final tasks = await _taskRepository.getTasksInDateRange(
+      final tasks = await taskRepository.getTasksInDateRange(
         event.startDate,
         event.endDate,
       );
 
       // Filter by project if specified
       if (event.projectId != null) {
-        final filteredTasks =
-            tasks.where((task) => task.projectId == event.projectId).toList();
+        final filteredTasks = tasks
+            .where((task) => task.projectId == event.projectId)
+            .toList();
         emit(TaskLoaded(filteredTasks));
       } else {
         emit(TaskLoaded(tasks));
@@ -81,12 +86,22 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     }
   }
 
-  Future<void> _onAddTask(AddTask event, Emitter<TaskState> emit) async {
+  Future<void> _onAddTask(
+    AddTask event, 
+    Emitter<TaskState> emit
+  ) async {
     emit(TaskLoading());
     try {
-      final task = Task.create(
+      // Create a new task
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final task = Task(
+        id: uuid.v4(),
         title: event.title,
         description: event.description,
+        status: TaskStatus.todo,
+        createdAt: now,
+        updatedAt: now,
+        pomodorosCompleted: 0,
         estimatedPomodoros: event.estimatedPomodoros,
         startDate: event.startDate.millisecondsSinceEpoch,
         endDate: event.endDate.millisecondsSinceEpoch,
@@ -95,8 +110,9 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
         reminderTime: event.reminderTime?.millisecondsSinceEpoch,
         projectId: event.projectId,
       );
-      await _taskRepository.saveTask(task);
-      final tasks = await _taskRepository.getAllTasks();
+
+      await taskRepository.saveTask(task);
+      final tasks = await taskRepository.getAllTasks();
       emit(TaskLoaded(tasks));
       emit(const TaskActionSuccess('Task added successfully'));
     } catch (e) {
@@ -104,10 +120,13 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     }
   }
 
-  Future<void> _onUpdateTask(UpdateTask event, Emitter<TaskState> emit) async {
+  Future<void> _onUpdateTask(
+    UpdateTask event, 
+    Emitter<TaskState> emit
+  ) async {
     emit(TaskLoading());
     try {
-      final existingTask = await _taskRepository.getTaskById(event.id);
+      final existingTask = await taskRepository.getTaskById(event.id);
       if (existingTask == null) {
         emit(const TaskError('Task not found'));
         return;
@@ -125,8 +144,8 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
         projectId: event.projectId,
       );
 
-      await _taskRepository.saveTask(updatedTask);
-      final tasks = await _taskRepository.getAllTasks();
+      await taskRepository.saveTask(updatedTask);
+      final tasks = await taskRepository.getAllTasks();
       emit(TaskLoaded(tasks));
       emit(const TaskActionSuccess('Task updated successfully'));
     } catch (e) {
@@ -134,11 +153,14 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     }
   }
 
-  Future<void> _onDeleteTask(DeleteTask event, Emitter<TaskState> emit) async {
+  Future<void> _onDeleteTask(
+    DeleteTask event, 
+    Emitter<TaskState> emit
+  ) async {
     emit(TaskLoading());
     try {
-      await _taskRepository.deleteTask(event.id);
-      final tasks = await _taskRepository.getAllTasks();
+      await taskRepository.deleteTask(event.id);
+      final tasks = await taskRepository.getAllTasks();
       emit(TaskLoaded(tasks));
       emit(const TaskActionSuccess('Task deleted successfully'));
     } catch (e) {
@@ -152,8 +174,8 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
   ) async {
     emit(TaskLoading());
     try {
-      await _taskRepository.markTaskAsInProgress(event.id);
-      final tasks = await _taskRepository.getAllTasks();
+      await taskRepository.markTaskAsInProgress(event.id);
+      final tasks = await taskRepository.getAllTasks();
       emit(TaskLoaded(tasks));
       emit(const TaskActionSuccess('Task marked as in progress'));
     } catch (e) {
@@ -167,8 +189,8 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
   ) async {
     emit(TaskLoading());
     try {
-      await _taskRepository.markTaskAsCompleted(event.id);
-      final tasks = await _taskRepository.getAllTasks();
+      await taskRepository.markTaskAsCompleted(event.id);
+      final tasks = await taskRepository.getAllTasks();
       emit(TaskLoaded(tasks));
       emit(const TaskActionSuccess('Task marked as completed'));
     } catch (e) {
@@ -182,8 +204,8 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
   ) async {
     emit(TaskLoading());
     try {
-      await _taskRepository.incrementTaskPomodoro(event.id);
-      final tasks = await _taskRepository.getAllTasks();
+      await taskRepository.incrementTaskPomodoro(event.id);
+      final tasks = await taskRepository.getAllTasks();
       emit(TaskLoaded(tasks));
       emit(const TaskActionSuccess('Pomodoro incremented for task'));
     } catch (e) {

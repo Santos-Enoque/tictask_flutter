@@ -1,9 +1,10 @@
 import 'package:get_it/get_it.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:tictask/app/constants/enums.dart';
-import 'package:tictask/app/services/auth_service.dart';
-import 'package:tictask/app/services/notification_service.dart';
-import 'package:tictask/app/services/sync_service.dart';
+import 'package:tictask/core/services/auth_service.dart';
+import 'package:tictask/core/services/notification_service.dart';
+import 'package:tictask/core/services/sync_service.dart';
+import 'package:tictask/features/auth/di/auth_injection.dart';
 import 'package:tictask/features/google_calendar/repositories/google_calendar_task_repository.dart';
 import 'package:tictask/features/google_calendar/services/google_auth_service.dart';
 import 'package:tictask/features/google_calendar/services/google_calendar_service.dart';
@@ -13,7 +14,7 @@ import 'package:tictask/features/projects/models/project.dart';
 import 'package:tictask/features/projects/repositories/project_repository.dart';
 import 'package:tictask/features/projects/repositories/syncable_project_repository.dart';
 import 'package:tictask/features/settings/repositories/settings_repository.dart';
-import 'package:tictask/features/tasks/bloc/task_bloc.dart';
+import 'package:tictask/features/tasks/presentation/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
 import 'package:tictask/features/tasks/repositories/syncable_task_repository.dart';
 import 'package:tictask/features/tasks/repositories/task_repository.dart';
@@ -28,9 +29,8 @@ Future<void> init() async {
   // Ensure Hive adapters are registered
   await _registerHiveAdapters();
 
-  // Register app auth service first
-  sl.registerLazySingleton<AuthService>(AuthService.new);
-
+  // Register features
+  await registerAuthFeature();
   // Register notification service
   sl.registerLazySingleton<NotificationService>(() => NotificationService());
 

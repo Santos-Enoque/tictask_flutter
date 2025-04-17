@@ -5,6 +5,7 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/features/tasks/models/task.dart';
 import 'package:tictask/features/tasks/repositories/task_repository.dart';
+import 'package:tictask/features/projects/repositories/project_repository.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key, this.showNavBar = true});
@@ -18,6 +19,7 @@ class StatsScreen extends StatefulWidget {
 class _StatsScreenState extends State<StatsScreen>
     with SingleTickerProviderStateMixin {
   final TaskRepository _taskRepository = GetIt.I<TaskRepository>();
+  final ProjectRepository _projectRepository = GetIt.I<ProjectRepository>();
 
   // Data for charts
   List<Task> _tasks = [];
@@ -28,11 +30,15 @@ class _StatsScreenState extends State<StatsScreen>
   final DateTime _endDate = DateTime.now();
   final DateTime _startDate = DateTime.now().subtract(const Duration(days: 90));
 
+  // Add this field to the state class
+  Map<String, String> _projectNames = {};
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadTasks();
+    _loadProjectNames();
   }
 
   @override
@@ -63,6 +69,14 @@ class _StatsScreenState extends State<StatsScreen>
         );
       }
     }
+  }
+
+  // Add this method to load project names
+  Future<void> _loadProjectNames() async {
+    final projects = await _projectRepository.getAllProjects();
+    setState(() {
+      _projectNames = {for (var p in projects) p.id: p.name};
+    });
   }
 
   @override
@@ -195,41 +209,33 @@ class _StatsScreenState extends State<StatsScreen>
     // Calculate focus stats
     final totalPomodoros =
         _tasks.fold<int>(0, (sum, task) => sum + task.pomodorosCompleted);
-    final totalFocusTime = totalPomodoros * 25; // 25 minutes per pomodoro
+    final totalFocusMinutes = totalPomodoros * 25; // 25 minutes per pomodoro
 
-    // Group pomodoros by day
-    final pomodorosByDay = <DateTime, int>{};
-    for (final task in _tasks) {
-      if (task.pomodorosCompleted > 0) {
-        final date = DateTime.fromMillisecondsSinceEpoch(task.updatedAt);
-        final dateOnly = DateTime(date.year, date.month, date.day);
-        pomodorosByDay[dateOnly] =
-            (pomodorosByDay[dateOnly] ?? 0) + task.pomodorosCompleted;
-      }
-    }
+    // Calculate hours and remaining minutes for better readability
+    final hours = totalFocusMinutes ~/ 60;
+    final minutes = totalFocusMinutes % 60;
 
-    // Find the day with most pomodoros
-    var maxPomodoros = 0;
-    DateTime? mostProductiveDay;
-    pomodorosByDay.forEach((date, count) {
-      if (count > maxPomodoros) {
-        maxPomodoros = count;
-        mostProductiveDay = date;
-      }
-    });
+    // Calculate average daily focus sessions
+    final uniqueDays = _tasks
+        .where((task) => task.pomodorosCompleted > 0)
+        .map((task) => DateTime.fromMillisecondsSinceEpoch(task.updatedAt))
+        .map((date) => DateTime(date.year, date.month, date.day))
+        .toSet()
+        .length;
+
+    final averageDailySessions =
+        uniqueDays > 0 ? (totalPomodoros / uniqueDays).toStringAsFixed(1) : '0';
 
     // Get screen width to calculate card width
     final screenWidth = MediaQuery.of(context).size.width;
-    final cardWidth =
-        (screenWidth - 48) / 2; // 48 = padding (16*2) + spacing (16)
-    final cardHeight = cardWidth * 0.45; // Further reduced aspect ratio
+    final cardWidth = (screenWidth - 48) / 2;
+    final cardHeight = cardWidth * 0.45;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Summary cards in a grid
           Wrap(
             spacing: 16,
             runSpacing: 16,
@@ -248,8 +254,8 @@ class _StatsScreenState extends State<StatsScreen>
                 width: cardWidth,
                 height: cardHeight,
                 child: _buildStatCard(
-                  'Focus Time',
-                  '${totalFocusTime ~/ 60}h ${totalFocusTime % 60}m',
+                  'Total Focus Time',
+                  '${hours}h ${minutes}m',
                   Icons.hourglass_bottom,
                   Colors.indigo,
                 ),
@@ -258,27 +264,24 @@ class _StatsScreenState extends State<StatsScreen>
                 width: cardWidth,
                 height: cardHeight,
                 child: _buildStatCard(
-                  'Most Productive Day',
-                  mostProductiveDay != null
-                      ? DateFormat('MMM d').format(mostProductiveDay!)
-                      : 'N/A',
-                  Icons.star,
-                  Colors.amber,
+                  'Active Days',
+                  uniqueDays.toString(),
+                  Icons.calendar_today,
+                  Colors.blue,
                 ),
               ),
               SizedBox(
                 width: cardWidth,
                 height: cardHeight,
                 child: _buildStatCard(
-                  'Record Sessions',
-                  maxPomodoros.toString(),
-                  Icons.emoji_events,
+                  'Avg. Daily Sessions',
+                  averageDailySessions,
+                  Icons.auto_graph,
                   Colors.orange,
                 ),
               ),
             ],
           ),
-
           const SizedBox(height: 24),
           const Text(
             'Daily Focus Sessions',
@@ -292,7 +295,6 @@ class _StatsScreenState extends State<StatsScreen>
             height: 250,
             child: _buildDailyFocusChart(),
           ),
-
           const SizedBox(height: 24),
           const Text(
             'Focus Distribution by Day of Week',
@@ -306,7 +308,6 @@ class _StatsScreenState extends State<StatsScreen>
             height: 250,
             child: _buildWeekdayDistributionChart(),
           ),
-
           const SizedBox(height: 24),
           const Text(
             'Focus Activity Heatmap',
@@ -716,46 +717,88 @@ class _StatsScreenState extends State<StatsScreen>
   }
 
   Widget _buildTasksByProjectChart() {
-    // Group tasks by project
-    final tasksByProject = <String, int>{};
+    final tasksByProject = <String, Map<String, int>>{};
+
     for (final task in _tasks) {
-      tasksByProject[task.projectId] =
-          (tasksByProject[task.projectId] ?? 0) + 1;
+      final projectName = _projectNames[task.projectId] ?? 'Unknown Project';
+      final projectData = tasksByProject[task.projectId] ??
+          {
+            'count': 0,
+            'completed': 0,
+          };
+
+      projectData['count'] = (projectData['count'] ?? 0) + 1;
+      if (task.status == TaskStatus.completed) {
+        projectData['completed'] = (projectData['completed'] ?? 0) + 1;
+      }
+
+      tasksByProject[task.projectId] = projectData;
     }
 
     // Sort projects by task count
     final sortedProjects = tasksByProject.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+      ..sort(
+          (a, b) => (b.value['count'] ?? 0).compareTo(a.value['count'] ?? 0));
 
-    // Create chart data (limit to top 10 projects)
-    final chartData = sortedProjects.take(10).map((entry) {
-      return ProjectData(entry.key, entry.value);
+    // Create chart data (limit to top 8 projects for better readability)
+    final chartData = sortedProjects.take(8).map((entry) {
+      final projectName = entry.key == 'inbox'
+          ? 'Inbox'
+          : _projectNames[entry.key] ?? 'Unknown Project';
+      final displayName = projectName.length > 15
+          ? '${projectName.substring(0, 12)}...'
+          : projectName;
+
+      return ProjectData(
+        displayName,
+        entry.value['count'] ?? 0,
+        entry.value['completed'] ?? 0,
+      );
     }).toList();
 
     return SfCartesianChart(
       primaryXAxis: const CategoryAxis(
         majorGridLines: MajorGridLines(width: 0),
         labelIntersectAction: AxisLabelIntersectAction.rotate45,
+        labelStyle: TextStyle(fontSize: 10),
       ),
-      primaryYAxis: const NumericAxis(
+      primaryYAxis: NumericAxis(
         minimum: 0,
-        interval: 2,
-        axisLine: AxisLine(width: 0),
-        majorTickLines: MajorTickLines(size: 0),
+        interval: chartData.isEmpty ? 1 : null,
+        axisLine: const AxisLine(width: 0),
+        majorTickLines: const MajorTickLines(size: 0),
       ),
-      tooltipBehavior: TooltipBehavior(enable: true),
+      legend: const Legend(
+        isVisible: true,
+        position: LegendPosition.bottom,
+      ),
+      tooltipBehavior: TooltipBehavior(
+        enable: true,
+        // Add custom tooltip format to show full project name
+        format: 'Project: point.x\nTotal: point.y',
+      ),
       series: <CartesianSeries<ProjectData, String>>[
-        BarSeries<ProjectData, String>(
+        ColumnSeries<ProjectData, String>(
+          name: 'Total Tasks',
           dataSource: chartData,
-          xValueMapper: (ProjectData data, _) =>
-              data.projectId == 'inbox' ? 'Inbox' : data.projectId,
+          xValueMapper: (ProjectData data, _) => data.projectId,
           yValueMapper: (ProjectData data, _) => data.count,
-          borderRadius: BorderRadius.circular(4),
-          gradient: const LinearGradient(
-            colors: [Colors.blue, Colors.teal],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(4),
+            topRight: Radius.circular(4),
           ),
+          color: Colors.blue.withOpacity(0.7),
+        ),
+        ColumnSeries<ProjectData, String>(
+          name: 'Completed',
+          dataSource: chartData,
+          xValueMapper: (ProjectData data, _) => data.projectId,
+          yValueMapper: (ProjectData data, _) => data.completed,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(4),
+            topRight: Radius.circular(4),
+          ),
+          color: Colors.green.withOpacity(0.7),
         ),
       ],
     );
@@ -972,7 +1015,8 @@ class StatusData {
 }
 
 class ProjectData {
-  ProjectData(this.projectId, this.count);
+  ProjectData(this.projectId, this.count, this.completed);
   final String projectId;
   final int count;
+  final int completed;
 }

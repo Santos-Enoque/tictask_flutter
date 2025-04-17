@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tictask/app/services/window_service.dart';
+import 'package:tictask/core/services/window_service.dart';
 import 'package:tictask/app/theme/dimensions.dart';
 import 'package:tictask/app/theme/text_styles.dart';
 

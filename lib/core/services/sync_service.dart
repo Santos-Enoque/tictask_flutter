@@ -3,7 +3,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tictask/app/services/auth_service.dart';
+import 'package:tictask/core/services/auth_service.dart';
 import 'package:tictask/features/projects/repositories/syncable_project_repository.dart';
 import 'package:tictask/features/tasks/repositories/syncable_task_repository.dart';
 import 'package:tictask/features/timer/repositories/syncable_timer_repository.dart';

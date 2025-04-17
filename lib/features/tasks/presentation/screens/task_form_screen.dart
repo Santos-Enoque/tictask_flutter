@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:tictask/app/widgets/app_scaffold.dart';
 import 'package:tictask/features/projects/bloc/project_bloc.dart';
 import 'package:tictask/features/projects/models/project.dart';
-import 'package:tictask/features/tasks/bloc/task_bloc.dart';
+import 'package:tictask/features/tasks/presentation/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/models/task.dart';
 
 class TaskFormScreen extends StatefulWidget {

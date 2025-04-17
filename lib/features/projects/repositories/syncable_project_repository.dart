@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tictask/app/constants/app_constants.dart';
 import 'package:tictask/features/projects/models/project.dart';
-import 'package:tictask/app/services/auth_service.dart';
+import 'package:tictask/core/services/auth_service.dart';
 import 'package:tictask/app/repositories/syncable_repository.dart';
 import 'package:tictask/features/projects/repositories/project_repository.dart';
 
