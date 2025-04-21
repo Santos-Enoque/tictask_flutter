@@ -3,6 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tictask/app/constants/app_constants.dart';
+import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/features/tasks/data/models/task_model.dart';
 import 'package:tictask/features/tasks/domain/entities/task_entity.dart';
 import 'package:tictask/features/tasks/domain/repositories/i_task_repository.dart';

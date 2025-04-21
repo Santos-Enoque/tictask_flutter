@@ -1,9 +1,72 @@
 // lib/features/tasks/data/models/task_model.dart
 import 'package:hive/hive.dart';
+import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/features/tasks/domain/entities/task_entity.dart';
+
+part 'task_model.g.dart';
 
 @HiveType(typeId: 10)
 class TaskModel extends TaskEntity {
+  @HiveField(0)
+  @override
+  final String id;
+
+  @HiveField(1)
+  @override
+  final String title;
+
+  @HiveField(2)
+  @override
+  final String? description;
+
+  @HiveField(3)
+  @override
+  final TaskStatus status;
+
+  @HiveField(4)
+  @override
+  final int createdAt;
+
+  @HiveField(5)
+  @override
+  final int updatedAt;
+
+  @HiveField(6)
+  @override
+  final int? completedAt;
+
+  @HiveField(7)
+  @override
+  final int pomodorosCompleted;
+
+  @HiveField(8)
+  @override
+  final int? estimatedPomodoros;
+
+  @HiveField(9)
+  @override
+  final int startDate;
+
+  @HiveField(10)
+  @override
+  final int endDate;
+
+  @HiveField(11)
+  @override
+  final bool ongoing;
+
+  @HiveField(12)
+  @override
+  final bool hasReminder;
+
+  @HiveField(13)
+  @override
+  final int? reminderTime;
+
+  @HiveField(14)
+  @override
+  final String projectId;
+
   // Create from JSON
   factory TaskModel.fromJson(Map<String, dynamic> json) {
     return TaskModel(
@@ -25,22 +88,38 @@ class TaskModel extends TaskEntity {
     );
   }
   const TaskModel({
-    required super.id,
-    required super.title,
-    required super.status,
-    required super.createdAt,
-    required super.updatedAt,
-    required super.pomodorosCompleted,
-    required super.startDate,
-    required super.endDate,
-    required super.ongoing,
-    super.description,
-    super.completedAt,
-    super.estimatedPomodoros,
-    super.hasReminder = false,
-    super.reminderTime,
-    super.projectId = 'inbox',
-  });
+    required this.id,
+    required this.title,
+    required this.status,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.pomodorosCompleted,
+    required this.startDate,
+    required this.endDate,
+    required this.ongoing,
+    this.description,
+    this.completedAt,
+    this.estimatedPomodoros,
+    this.hasReminder = false,
+    this.reminderTime,
+    this.projectId = 'inbox',
+  }) : super(
+          id: id,
+          title: title,
+          status: status,
+          createdAt: createdAt,
+          updatedAt: updatedAt,
+          pomodorosCompleted: pomodorosCompleted,
+          startDate: startDate,
+          endDate: endDate,
+          ongoing: ongoing,
+          description: description,
+          completedAt: completedAt,
+          estimatedPomodoros: estimatedPomodoros,
+          hasReminder: hasReminder,
+          reminderTime: reminderTime,
+          projectId: projectId,
+        );
 
   // Factory to create a new task
   factory TaskModel.create({

@@ -8,16 +8,16 @@ import 'package:tictask/app/routes/routes.dart';
 import 'package:tictask/app/theme/colors.dart';
 import 'package:tictask/app/widgets/app_scaffold.dart';
 import 'package:tictask/core/utils/logger.dart';
-import 'package:tictask/features/projects/models/project.dart';
-import 'package:tictask/features/projects/repositories/project_repository.dart';
+import 'package:tictask/features/projects/domain/entities/project_entity.dart';
+import 'package:tictask/features/projects/domain/repositories/i_project_repository.dart';
+import 'package:tictask/features/tasks/data/models/task_model.dart';
+import 'package:tictask/features/tasks/domain/entities/task_entity.dart';
 import 'package:tictask/features/tasks/presentation/bloc/task_bloc.dart';
-import 'package:tictask/features/tasks/domain/entities/task_entity.dart'
-    hide TaskStatus;
-import 'package:tictask/features/tasks/models/task.dart' as task_model;
 import 'package:tictask/features/tasks/presentation/widgets/date_scroll_picker.dart';
 import 'package:tictask/features/tasks/presentation/widgets/task_form_sheet.dart';
 import 'package:tictask/features/timer/presentation/bloc/timer_bloc.dart';
 import 'package:tictask/features/timer/presentation/screens/timer_screen.dart';
+import 'package:tictask/injection_container.dart' as di;
 
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key, this.showNavBar = true});
@@ -46,7 +46,7 @@ class _TasksScreenState extends State<TasksScreen> {
 
   // Add these new variables
   String? _selectedProjectId;
-  final ProjectRepository _projectRepository = GetIt.I<ProjectRepository>();
+  final IProjectRepository _projectRepository = di.sl<IProjectRepository>();
 
   @override
   void initState() {
@@ -265,7 +265,7 @@ class _TasksScreenState extends State<TasksScreen> {
 
   void _showTaskFormSheet({TaskEntity? task}) {
     // Convert domain Task to model Task if needed
-    task_model.Task? modelTask;
+    TaskModel? modelTask;
     if (task != null) {
       // Map domain TaskStatus to app TaskStatus enum
       TaskStatus modelStatus;
@@ -283,7 +283,7 @@ class _TasksScreenState extends State<TasksScreen> {
           modelStatus = TaskStatus.todo;
       }
 
-      modelTask = task_model.Task(
+      modelTask = TaskModel(
         id: task.id,
         title: task.title,
         description: task.description,
@@ -698,9 +698,9 @@ class _TasksScreenState extends State<TasksScreen> {
 
   Widget buildProjectInfo(TaskEntity task, BuildContext context) {
     // This method could be refactored to use a ProjectBloc instead of direct repository access
-    final projectRepository = GetIt.I<ProjectRepository>();
+    final projectRepository = di.sl<IProjectRepository>();
 
-    return FutureBuilder<Project?>(
+    return FutureBuilder<ProjectEntity?>(
       future: projectRepository.getProjectById(task.projectId),
       builder: (context, snapshot) {
         // Default to inbox project while loading or if no project found
@@ -781,7 +781,7 @@ class _TasksScreenState extends State<TasksScreen> {
   // The same applies to _buildProjectDropdown
   Widget _buildProjectDropdown() {
     // This could be refactored to use a ProjectBloc
-    return FutureBuilder<List<Project>>(
+    return FutureBuilder<List<ProjectEntity>>(
       future: _projectRepository.getAllProjects(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {

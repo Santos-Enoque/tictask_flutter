@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:tictask/app/theme/colors.dart';
-import 'package:tictask/features/projects/models/project.dart';
-import 'package:tictask/features/projects/repositories/project_repository.dart';
+import 'package:tictask/features/projects/domain/entities/project_entity.dart';
+import 'package:tictask/features/projects/domain/repositories/i_project_repository.dart';
 import 'package:tictask/features/projects/presentation/widgets/project_form_sheet.dart';
+import 'package:tictask/features/tasks/domain/entities/task_entity.dart';
 import 'package:tictask/features/tasks/presentation/bloc/task_bloc.dart';
-import 'package:tictask/features/tasks/models/task.dart';
 import 'package:tictask/injection_container.dart' as di;
 
 class TaskFormSheet extends StatefulWidget {
@@ -17,7 +17,7 @@ class TaskFormSheet extends StatefulWidget {
     this.task,
   });
 
-  final Task? task;
+  final TaskEntity? task;
   final VoidCallback onComplete;
 
   @override
@@ -36,7 +36,7 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
   late bool _hasReminder;
   DateTime? _reminderTime;
   String _selectedProjectId = 'inbox';
-  List<Project> _projects = [];
+  List<ProjectEntity> _projects = [];
   bool _showAdvancedOptions = false;
 
   // Add focus nodes for better keyboard control
@@ -95,7 +95,7 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
   Future<void> _loadProjects() async {
     try {
       // Access the project repository directly from the service locator
-      final projectRepository = di.sl<ProjectRepository>();
+      final projectRepository = di.sl<IProjectRepository>();
       final projects = await projectRepository.getAllProjects();
       if (mounted) {
         setState(() {
@@ -108,7 +108,7 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
       if (mounted) {
         setState(() {
           _projects = [
-            const Project(
+            const ProjectEntity(
               id: 'inbox',
               name: 'Inbox',
               color: 0xFF4A6572,
@@ -287,7 +287,7 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                                               .firstWhere(
                                                 (p) =>
                                                     p.id == _selectedProjectId,
-                                                orElse: () => const Project(
+                                                orElse: () => const ProjectEntity(
                                                   id: 'inbox',
                                                   name: 'Inbox',
                                                   color: 0xFF4A6572,
@@ -997,7 +997,7 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
 
     // Function to refresh projects
     Future<void> refreshProjects() async {
-      final projectRepository = di.sl<ProjectRepository>();
+      final projectRepository = di.sl<IProjectRepository>();
       final projects = await projectRepository.getAllProjects();
 
       if (mounted) {

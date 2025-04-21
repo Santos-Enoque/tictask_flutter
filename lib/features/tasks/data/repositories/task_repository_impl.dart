@@ -117,7 +117,8 @@ class TaskRepositoryImpl implements ITaskRepository {
   Future<void> markTaskAsInProgress(String id) async {
     final task = _tasksBox.get(id);
     if (task != null) {
-      await _tasksBox.put(id, task.markAsInProgress());
+      await _tasksBox.put(
+          id, (task as TaskModel).markAsInProgress() as TaskModel);
     }
   }
 
@@ -125,7 +126,8 @@ class TaskRepositoryImpl implements ITaskRepository {
   Future<void> markTaskAsCompleted(String id) async {
     final task = _tasksBox.get(id);
     if (task != null) {
-      await _tasksBox.put(id, task.markAsCompleted());
+      await _tasksBox.put(
+          id, (task as TaskModel).markAsCompleted() as TaskModel);
     }
   }
 
@@ -133,7 +135,8 @@ class TaskRepositoryImpl implements ITaskRepository {
   Future<void> incrementTaskPomodoro(String id) async {
     final task = _tasksBox.get(id);
     if (task != null) {
-      await _tasksBox.put(id, task.incrementPomodoro());
+      await _tasksBox.put(
+          id, (task as TaskModel).incrementPomodoro() as TaskModel);
     }
   }
 
