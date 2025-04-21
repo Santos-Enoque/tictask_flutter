@@ -1,4 +1,3 @@
-
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -141,6 +140,14 @@ class _TimerScreenState extends State<TimerScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
+    // Add this block to handle configuration changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        // Reinitialize the timer to load new configuration
+        context.read<TimerBloc>().add(const TimerInitialized());
+      }
+    });
 
     // Check if we have a taskId and autoStart flag and haven't initialized yet
     if (!_hasInitializedTask && widget.taskId != null && widget.autoStart) {
@@ -947,7 +954,8 @@ class _TimerScreenState extends State<TimerScreen> {
                     children: [
                       Icon(Icons.delete, size: 18, color: AppColors.lightError),
                       SizedBox(width: 8),
-                      Text('Delete', style: TextStyle(color: AppColors.lightError)),
+                      Text('Delete',
+                          style: TextStyle(color: AppColors.lightError)),
                     ],
                   ),
                 ),
@@ -983,7 +991,8 @@ class _TimerScreenState extends State<TimerScreen> {
   }
 
   // Method to confirm and delete project
-  void _showDeleteProjectConfirmation(BuildContext context, ProjectEntity project) {
+  void _showDeleteProjectConfirmation(
+      BuildContext context, ProjectEntity project) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(

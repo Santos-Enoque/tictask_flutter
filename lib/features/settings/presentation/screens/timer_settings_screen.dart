@@ -19,7 +19,7 @@ class _TimerSettingsScreenState extends State<TimerSettingsScreen> {
   late int _longBreakInterval;
 
   bool _isLoading = true;
-  
+
   @override
   void initState() {
     super.initState();
@@ -30,7 +30,7 @@ class _TimerSettingsScreenState extends State<TimerSettingsScreen> {
     // Get the timer config from the BLoC
     final timerBloc = sl<TimerBloc>();
     final config = timerBloc.state.config;
-    
+
     setState(() {
       _pomoDuration = config.pomodoroDurationInMinutes;
       _shortBreakDuration = config.shortBreakDurationInMinutes;
@@ -57,8 +57,14 @@ class _TimerSettingsScreenState extends State<TimerSettingsScreen> {
     // Use the TimerConfigChanged event to save the new config
     timerBloc.add(TimerConfigChanged(config: newConfig));
 
-    // Show success message
+    // Wait a brief moment for the config to be saved
+    await Future.delayed(const Duration(milliseconds: 100));
+
     if (mounted) {
+      // Pop back to previous screen
+      Navigator.of(context).pop();
+
+      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Timer settings saved'),
