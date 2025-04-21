@@ -3,7 +3,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:tictask/features/tasks/domain/usecases/increment_task_pmodoro_use_case.dart';
 import 'package:uuid/uuid.dart';
-import 'package:tictask/features/tasks/domain/entities/task.dart';
+import 'package:tictask/features/tasks/domain/entities/task_entity.dart';
 import 'package:tictask/features/tasks/domain/usecases/create_task_use_case.dart';
 import 'package:tictask/features/tasks/domain/usecases/delete_task_use_case.dart';
 import 'package:tictask/features/tasks/domain/usecases/get_all_tasks_use_case.dart';

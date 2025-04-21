@@ -3,350 +3,260 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tictask/app/constants/app_constants.dart';
-import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/app/routes/routes.dart';
+import 'package:tictask/app/theme/colors.dart';
 import 'package:tictask/core/services/auth_service.dart';
-import 'package:tictask/core/services/sync_service.dart';
-import 'package:tictask/app/theme/app_theme.dart';
 import 'package:tictask/app/theme/dimensions.dart';
-import 'package:tictask/app/theme/text_styles.dart';
+import 'package:tictask/core/services/sync_service.dart';
+import 'package:tictask/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:tictask/injection_container.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends StatelessWidget {
   const SettingsScreen({Key? key, this.showNavBar = true}) : super(key: key);
 
   final bool showNavBar;
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => sl<SettingsBloc>()..add(const LoadSettings()),
+      child: _SettingsScreenContent(showNavBar: showNavBar),
+    );
+  }
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
-  final AuthService _authService = sl<AuthService>();
-  final SyncService _syncService = sl<SyncService>();
+class _SettingsScreenContent extends StatelessWidget {
+  const _SettingsScreenContent({required this.showNavBar});
 
-  bool _syncEnabled = true;
-  bool _notificationsEnabled = true;
-  bool _soundsEnabled = true;
-  bool _vibrationEnabled = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSettings();
-  }
-
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _syncEnabled = prefs.getBool('sync_enabled') ?? true;
-      _notificationsEnabled =
-          prefs.getBool(AppConstants.notificationsEnabledPrefKey) ?? true;
-      _soundsEnabled = prefs.getBool('sounds_enabled') ?? true;
-      _vibrationEnabled = prefs.getBool('vibration_enabled') ?? true;
-    });
-  }
-
-  Future<void> _saveSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('sync_enabled', _syncEnabled);
-    await prefs.setBool(
-        AppConstants.notificationsEnabledPrefKey, _notificationsEnabled);
-    await prefs.setBool('sounds_enabled', _soundsEnabled);
-    await prefs.setBool('vibration_enabled', _vibrationEnabled);
-  }
+  final bool showNavBar;
 
   @override
   Widget build(BuildContext context) {
+    final authService = sl<AuthService>();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
       ),
-      body: ListView(
-        children: [
-          // App Info
-          _buildSectionHeader('App Information'),
-          ListTile(
-            title: const Text('App Name'),
-            subtitle: Text(AppConstants.appName),
-          ),
-          ListTile(
-            title: const Text('App Version'),
-            subtitle: Text(AppConstants.appVersion),
-          ),
-          const Divider(),
+      body: BlocConsumer<SettingsBloc, SettingsState>(
+        listener: (context, state) {
+          if (state is SettingsError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.message)),
+            );
+          }
+        },
+        builder: (context, state) {
+          if (state is SettingsLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          
+          if (state is SettingsLoaded) {
+            return _buildSettingsList(context, state, authService);
+          }
+          
+          return const Center(child: Text('Failed to load settings'));
+        },
+      ),
+    );
+  }
 
-          // Appearance Settings
-          _buildSectionHeader('Appearance'),
-          BlocBuilder<ThemeBloc, ThemeState>(
-            builder: (context, state) {
-              return ListTile(
-                title: const Text('Theme'),
-                subtitle: Text(_getThemeModeText(state.themeMode)),
-                trailing: DropdownButton<ThemeMode>(
-                  value: state.themeMode,
-                  onChanged: (ThemeMode? newMode) {
-                    if (newMode != null) {
-                      context.setThemeMode(newMode);
-                    }
-                  },
-                  items: const [
-                    DropdownMenuItem(
-                      value: ThemeMode.system,
-                      child: Text('System'),
-                    ),
-                    DropdownMenuItem(
-                      value: ThemeMode.light,
-                      child: Text('Light'),
-                    ),
-                    DropdownMenuItem(
-                      value: ThemeMode.dark,
-                      child: Text('Dark'),
-                    ),
-                  ],
-                  underline: const SizedBox.shrink(),
-                ),
-              );
-            },
-          ),
-          const Divider(),
+  Widget _buildSettingsList(
+    BuildContext context, 
+    SettingsLoaded state, 
+    AuthService authService
+  ) {
+    return ListView(
+      children: [
+        // App Info
+        _buildSectionHeader(context, 'App Information'),
+        const ListTile(
+          title: Text('App Name'),
+          subtitle: Text(AppConstants.appName),
+        ),
+        const ListTile(
+          title: Text('App Version'),
+          subtitle: Text(AppConstants.appVersion),
+        ),
+        const Divider(),
 
-          // Window Settings (Desktop only)
-          if (!kIsWeb &&
-              (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) ...[
-            _buildSectionHeader('Window'),
-            ListTile(
-              title: const Text('Window Settings'),
-              subtitle: const Text('Configure window size and behavior'),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () {
-                context.push(Routes.windowSettings);
-              },
-            ),
-            const Divider(),
-          ],
+        // Appearance Settings
+        _buildSectionHeader(context, 'Appearance'),
+        ListTile(
+          title: const Text('Theme'),
+          subtitle: Text(_getThemeModeText(state.themeMode)),
+          trailing: DropdownButton<ThemeMode>(
+            value: state.themeMode,
+            onChanged: (ThemeMode? newMode) {
+              if (newMode != null) {
+                context.read<SettingsBloc>().add(UpdateThemeMode(newMode));
+              }
+            },
+            items: const [
+              DropdownMenuItem(
+                value: ThemeMode.system,
+                child: Text('System'),
+              ),
+              DropdownMenuItem(
+                value: ThemeMode.light,
+                child: Text('Light'),
+              ),
+              DropdownMenuItem(
+                value: ThemeMode.dark,
+                child: Text('Dark'),
+              ),
+            ],
+            underline: const SizedBox.shrink(),
+          ),
+        ),
+        const Divider(),
 
-          // Notification Settings
-          _buildSectionHeader('Notifications'),
-          SwitchListTile(
-            title: const Text('Enable Notifications'),
-            subtitle: const Text('Get notified when timers complete'),
-            value: _notificationsEnabled,
-            onChanged: (bool value) async {
-              setState(() {
-                _notificationsEnabled = value;
-              });
-              await _saveSettings();
-            },
-          ),
-          SwitchListTile(
-            title: const Text('Sound Effects'),
-            subtitle: const Text('Play sound when timer completes'),
-            value: _soundsEnabled,
-            onChanged: (bool value) async {
-              setState(() {
-                _soundsEnabled = value;
-              });
-              await _saveSettings();
-            },
-          ),
-          SwitchListTile(
-            title: const Text('Vibration'),
-            subtitle: const Text('Vibrate when timer completes'),
-            value: _vibrationEnabled,
-            onChanged: (bool value) async {
-              setState(() {
-                _vibrationEnabled = value;
-              });
-              await _saveSettings();
-            },
-          ),
-          const Divider(),
-          _buildSectionHeader('Calendar Integration'),
+        // Window Settings (Desktop only)
+        if (!kIsWeb &&
+            (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) ...[
+          _buildSectionHeader(context, 'Window'),
           ListTile(
-            title: const Text('Google Calendar'),
-            subtitle: const Text('Configure calendar integration and sync'),
+            title: const Text('Window Settings'),
+            subtitle: const Text('Configure window size and behavior'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {
-              context.push(Routes.calendarSettings);
+              context.push(Routes.windowSettings);
             },
           ),
           const Divider(),
-          // Timer Settings
-          _buildSectionHeader('Timer Settings'),
+        ],
+
+        // Notification Settings
+        _buildSectionHeader(context, 'Notifications'),
+        SwitchListTile(
+          title: const Text('Enable Notifications'),
+          subtitle: const Text('Get notified when timers complete'),
+          value: state.settings.notificationsEnabled,
+          onChanged: (bool value) {
+            context.read<SettingsBloc>().add(UpdateNotificationsEnabled(value));
+          },
+        ),
+        SwitchListTile(
+          title: const Text('Sound Effects'),
+          subtitle: const Text('Play sound when timer completes'),
+          value: state.settings.soundsEnabled,
+          onChanged: (bool value) {
+            context.read<SettingsBloc>().add(UpdateSoundsEnabled(value));
+          },
+        ),
+        SwitchListTile(
+          title: const Text('Vibration'),
+          subtitle: const Text('Vibrate when timer completes'),
+          value: state.settings.vibrationEnabled,
+          onChanged: (bool value) {
+            context.read<SettingsBloc>().add(UpdateVibrationEnabled(value));
+          },
+        ),
+        const Divider(),
+
+        // Calendar Integration
+        _buildSectionHeader(context, 'Calendar Integration'),
+        ListTile(
+          title: const Text('Google Calendar'),
+          subtitle: const Text('Configure calendar integration and sync'),
+          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          onTap: () {
+            context.push(Routes.calendarSettings);
+          },
+        ),
+        const Divider(),
+
+        // Timer Settings
+        _buildSectionHeader(context, 'Timer Settings'),
+        ListTile(
+          title: const Text('Default Timer Duration'),
+          subtitle: const Text('Configure default timer durations'),
+          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          onTap: () {
+            context.push(Routes.timerSettings);
+          },
+        ),
+        const Divider(),
+
+        // Sync Settings
+        _buildSectionHeader(context, 'Synchronization'),
+        SwitchListTile(
+          title: const Text('Enable Sync'),
+          subtitle: const Text('Sync your data across devices'),
+          value: state.settings.syncEnabled,
+          onChanged: authService.isAuthenticated
+              ? (bool value) {
+                  context.read<SettingsBloc>().add(UpdateSyncEnabled(value));
+                }
+              : null,
+        ),
+        if (authService.isAuthenticated) ...[
           ListTile(
-            title: const Text('Default Timer Duration'),
-            subtitle: const Text('Configure default timer durations'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              context.push(Routes.timerSettings);
-            },
-          ),
-          const Divider(),
+            title: const Text('Sync Now'),
+            subtitle: Text('Last sync: ${_getLastSyncTimeText()}'),
+            trailing: IconButton(
+              icon: const Icon(Icons.sync),
+              onPressed: () async {
+                // Show sync in progress
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Syncing data...'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
 
-          // Sync Settings
-          _buildSectionHeader('Synchronization'),
-          SwitchListTile(
-            title: const Text('Enable Sync'),
-            subtitle: const Text('Sync your data across devices'),
-            value: _syncEnabled,
-            onChanged: _authService.isAuthenticated
-                ? (bool value) async {
-                    setState(() {
-                      _syncEnabled = value;
-                    });
-                    await _saveSettings();
+                // Perform sync
+                final syncService = sl<SyncService>();
+                final success = await syncService.syncAll();
 
-                    // Update sync service
-                    _syncService.restartBackgroundSync();
-
-                    // Force sync if enabled
-                    if (value) {
-                      _syncService.syncAll();
-                    }
-                  }
-                : null,
-          ),
-          if (_authService.isAuthenticated) ...[
-            ListTile(
-              title: const Text('Sync Now'),
-              subtitle: Text('Last sync: ${_getLastSyncTimeText()}'),
-              trailing: IconButton(
-                icon: const Icon(Icons.sync),
-                onPressed: () async {
-                  // Show sync in progress
+                // Show result
+                if (success) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Syncing data...'),
-                      duration: Duration(seconds: 1),
+                      content: Text('Sync completed successfully'),
+                      backgroundColor: AppColors.lightSecondary,
                     ),
                   );
-
-                  // Perform sync
-                  final success = await _syncService.syncAll();
-
-                  // Show result
-                  if (success) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Sync completed successfully'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Sync failed. Please try again later.'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-
-                  // Refresh UI to show updated last sync time
-                  setState(() {});
-                },
-              ),
-            ),
-          ],
-          if (!_authService.isAuthenticated)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppDimensions.md),
-              child: Text(
-                'Sign in to enable synchronization',
-                style: TextStyle(
-                  fontStyle: FontStyle.italic,
-                  color: Colors.grey,
-                ),
-              ),
-            ),
-          const Divider(),
-
-          // Account
-          _buildSectionHeader('Account'),
-          if (_authService.isAuthenticated)
-            ListTile(
-              title: Text(_authService.userEmail ?? 'User'),
-              subtitle: const Text('Signed in'),
-              trailing: TextButton(
-                onPressed: () async {
-                  // Show confirmation dialog
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Sign Out'),
-                      content: const Text('Are you sure you want to sign out?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          child: const Text('Sign Out'),
-                        ),
-                      ],
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Sync failed. Please try again later.'),
+                      backgroundColor: AppColors.lightError,
                     ),
                   );
-
-                  if (confirmed == true) {
-                    await _authService.signOut();
-                    setState(() {});
-                  }
-                },
-                child: const Text('Sign Out'),
-              ),
-            )
-          else
-            ListTile(
-              title: const Text('Sign In'),
-              subtitle: const Text('Sync your data across devices'),
-              trailing: ElevatedButton(
-                onPressed: () {
-                  context.go(Routes.login);
-                },
-                child: const Text('Sign In'),
-              ),
-            ),
-          const Divider(),
-
-          // Data Management
-          _buildSectionHeader('Data Management'),
-          ListTile(
-            title: const Text('Export Data'),
-            subtitle: const Text('Export your tasks and timer sessions'),
-            trailing: IconButton(
-              icon: const Icon(Icons.download),
-              onPressed: () {
-                // Export data
+                }
               },
             ),
           ),
-          ListTile(
-            title: const Text('Import Data'),
-            subtitle: const Text('Import tasks and timer sessions'),
-            trailing: IconButton(
-              icon: const Icon(Icons.upload),
-              onPressed: () {
-                // Import data
-              },
+        ],
+        if (!authService.isAuthenticated)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: AppDimensions.md),
+            child: Text(
+              'Sign in to enable synchronization',
+              style: TextStyle(
+                fontStyle: FontStyle.italic,
+                color: AppColors.lightDisabled,
+              ),
             ),
           ),
+        const Divider(),
+
+        // Account
+        _buildSectionHeader(context, 'Account'),
+        if (authService.isAuthenticated)
           ListTile(
-            title: const Text('Clear All Data'),
-            subtitle: const Text('Delete all local data'),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete_forever),
+            title: Text(authService.userEmail ?? 'User'),
+            subtitle: const Text('Signed in'),
+            trailing: TextButton(
               onPressed: () async {
                 // Show confirmation dialog
                 final confirmed = await showDialog<bool>(
                   context: context,
                   builder: (context) => AlertDialog(
-                    title: const Text('Clear All Data'),
-                    content: const Text(
-                      'Are you sure you want to delete all local data? This action cannot be undone.',
-                    ),
+                    title: const Text('Sign Out'),
+                    content: const Text('Are you sure you want to sign out?'),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context, false),
@@ -354,58 +264,130 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       TextButton(
                         onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Delete'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red,
-                        ),
+                        child: const Text('Sign Out'),
                       ),
                     ],
                   ),
                 );
 
                 if (confirmed == true) {
-                  // Clear all data
-                  // Show loading indicator
-                  // Show success message
+                  await authService.signOut();
+                  // Reload settings after sign out
+                  if (context.mounted) {
+                    context.read<SettingsBloc>().add(const LoadSettings());
+                  }
                 }
               },
+              child: const Text('Sign Out'),
+            ),
+          )
+        else
+          ListTile(
+            title: const Text('Sign In'),
+            subtitle: const Text('Sync your data across devices'),
+            trailing: ElevatedButton(
+              onPressed: () {
+                context.go(Routes.login);
+              },
+              child: const Text('Sign In'),
             ),
           ),
-          const Divider(),
+        const Divider(),
 
-          // About
-          _buildSectionHeader('About'),
-          ListTile(
-            title: const Text('Privacy Policy'),
-            onTap: () {
-              // Open privacy policy
+        // Data Management
+        _buildSectionHeader(context, 'Data Management'),
+        ListTile(
+          title: const Text('Export Data'),
+          subtitle: const Text('Export your tasks and timer sessions'),
+          trailing: IconButton(
+            icon: const Icon(Icons.download),
+            onPressed: () {
+              // Export data
             },
           ),
-          ListTile(
-            title: const Text('Terms of Service'),
-            onTap: () {
-              // Open terms of service
+        ),
+        ListTile(
+          title: const Text('Import Data'),
+          subtitle: const Text('Import tasks and timer sessions'),
+          trailing: IconButton(
+            icon: const Icon(Icons.upload),
+            onPressed: () {
+              // Import data
             },
           ),
-          ListTile(
-            title: const Text('Acknowledgements'),
-            subtitle: const Text('Third-party libraries and assets'),
-            onTap: () {
-              // Show acknowledgements
-              showLicensePage(
+        ),
+        ListTile(
+          title: const Text('Clear All Data'),
+          subtitle: const Text('Delete all local data'),
+          trailing: IconButton(
+            icon: const Icon(Icons.delete_forever),
+            onPressed: () async {
+              // Show confirmation dialog
+              final confirmed = await showDialog<bool>(
                 context: context,
-                applicationName: AppConstants.appName,
-                applicationVersion: AppConstants.appVersion,
+                builder: (context) => AlertDialog(
+                  title: const Text('Clear All Data'),
+                  content: const Text(
+                    'Are you sure you want to delete all local data? This action cannot be undone.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Delete'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.lightError,
+                      ),
+                    ),
+                  ],
+                ),
               );
+
+              if (confirmed == true) {
+                // Clear all data
+                // Show loading indicator
+                // Show success message
+              }
             },
           ),
-          const SizedBox(height: AppDimensions.xl),
-        ],
-      ),
+        ),
+        const Divider(),
+
+        // About
+        _buildSectionHeader(context, 'About'),
+        ListTile(
+          title: const Text('Privacy Policy'),
+          onTap: () {
+            // Open privacy policy
+          },
+        ),
+        ListTile(
+          title: const Text('Terms of Service'),
+          onTap: () {
+            // Open terms of service
+          },
+        ),
+        ListTile(
+          title: const Text('Acknowledgements'),
+          subtitle: const Text('Third-party libraries and assets'),
+          onTap: () {
+            // Show acknowledgements
+            showLicensePage(
+              context: context,
+              applicationName: AppConstants.appName,
+              applicationVersion: AppConstants.appVersion,
+            );
+          },
+        ),
+        const SizedBox(height: AppDimensions.xl),
+      ],
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(BuildContext context, String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppDimensions.md,
@@ -437,7 +419,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   String _getLastSyncTimeText() {
-    final lastSyncTime = _syncService.lastSyncTime;
+    final syncService = sl<SyncService>();
+    final lastSyncTime = syncService.lastSyncTime;
+    
     if (lastSyncTime == null) {
       return 'Never';
     }

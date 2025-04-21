@@ -1,16 +1,27 @@
 import 'package:equatable/equatable.dart';
+import 'package:hive/hive.dart';
+
+part 'timer_entity.g.dart';
 
 /// Timer mode to indicate the current mode of the timer
+@HiveType(typeId: 4)
 enum TimerMode {
+  @HiveField(0)
   focus,
+  @HiveField(1)
   break_,
 }
 
 /// Timer status to track the current state of the timer
+@HiveType(typeId: 5)
 enum TimerStatus {
+  @HiveField(0)
   idle,
+  @HiveField(1)
   running,
+  @HiveField(2)
   paused,
+  @HiveField(3)
   break_,
 }
 

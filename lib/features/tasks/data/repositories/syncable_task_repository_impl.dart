@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tictask/app/constants/app_constants.dart';
 import 'package:tictask/features/tasks/data/models/task_model.dart';
-import 'package:tictask/features/tasks/domain/entities/task.dart';
+import 'package:tictask/features/tasks/domain/entities/task_entity.dart';
 import 'package:tictask/features/tasks/domain/repositories/i_task_repository.dart';
 import 'package:tictask/features/auth/domain/repositories/auth_repository.dart';
 
@@ -51,19 +51,19 @@ class SyncableTaskRepositoryImpl implements ITaskRepository {
   ValueNotifier<String?> get lastSyncError => _lastSyncError;
 
   @override
-  Future<List<Task>> getAllTasks() async {
+  Future<List<TaskEntity>> getAllTasks() async {
     return _tasksBox.values.toList();
   }
 
   @override
-  Future<List<Task>> getIncompleteTasks() async {
+  Future<List<TaskEntity>> getIncompleteTasks() async {
     return _tasksBox.values
         .where((task) => task.status != TaskStatus.completed)
         .toList();
   }
 
   @override
-  Future<List<Task>> getTasksForDate(DateTime date) async {
+  Future<List<TaskEntity>> getTasksForDate(DateTime date) async {
     final startOfDay =
         DateTime(date.year, date.month, date.day).millisecondsSinceEpoch;
     final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59)
@@ -77,7 +77,7 @@ class SyncableTaskRepositoryImpl implements ITaskRepository {
   }
 
   @override
-  Future<List<Task>> getTasksInDateRange(
+  Future<List<TaskEntity>> getTasksInDateRange(
     DateTime startDate,
     DateTime endDate,
   ) async {
@@ -96,13 +96,13 @@ class SyncableTaskRepositoryImpl implements ITaskRepository {
   }
 
   @override
-  Future<Task?> getTaskById(String id) async {
+  Future<TaskEntity?> getTaskById(String id) async {
     return _tasksBox.get(id);
   }
 
   // Modified save method with sync metadata
   @override
-  Future<void> saveTask(Task task) async {
+  Future<void> saveTask(TaskEntity task) async {
     // Create a copy with updated timestamp for syncing
     final now = DateTime.now().millisecondsSinceEpoch;
 
@@ -169,7 +169,7 @@ class SyncableTaskRepositoryImpl implements ITaskRepository {
 
   // Add method to get tasks by project
   @override
-  Future<List<Task>> getTasksByProject(String projectId) async {
+  Future<List<TaskEntity>> getTasksByProject(String projectId) async {
     return _tasksBox.values
         .where((task) => task.projectId == projectId)
         .toList();
@@ -243,7 +243,7 @@ class SyncableTaskRepositoryImpl implements ITaskRepository {
   }
 
   // Convert Task to Map for Supabase
-  Future<Map<String, dynamic>> _taskToMap(Task task) async {
+  Future<Map<String, dynamic>> _taskToMap(TaskEntity task) async {
     final user = _authRepository.isAuthenticated
         ? await _authRepository.getCurrentUser()
         : null;

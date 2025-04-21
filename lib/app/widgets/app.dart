@@ -3,12 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:tictask/app/constants/app_constants.dart';
 import 'package:tictask/app/routes/app_router.dart';
+import 'package:tictask/app/theme/bloc/theme_bloc.dart';
 import 'package:tictask/core/services/auth_service.dart';
-import 'package:tictask/app/theme/app_theme.dart';
 import 'package:tictask/app/theme/themes/dark_theme.dart';
 import 'package:tictask/app/theme/themes/light_theme.dart';
+import 'package:tictask/features/projects/data/repositories/project_repository_impl.dart';
 import 'package:tictask/features/projects/presentation/bloc/project_bloc.dart';
-import 'package:tictask/features/projects/repositories/project_repository.dart';
 import 'package:tictask/features/tasks/presentation/bloc/task_bloc.dart';
 import 'package:tictask/features/tasks/repositories/task_repository.dart';
 import 'package:tictask/features/timer/presentation/bloc/timer_bloc.dart';
@@ -43,9 +43,7 @@ class _AppState extends State<App> {
     return MultiBlocProvider(
       providers: [
         // Global BLoC providers
-        BlocProvider<ThemeBloc>(
-          create: (_) => ThemeBloc()..add(LoadThemeSettings()),
-        ),
+   
         BlocProvider<TimerBloc>(
           create: (_) => sl<TimerBloc>(),
         ),
@@ -55,8 +53,11 @@ class _AppState extends State<App> {
         Provider<TaskRepository>(
           create: (_) => sl<TaskRepository>(),
         ),
-        Provider<ProjectRepository>(
-          create: (_) => sl<ProjectRepository>(),
+        BlocProvider(
+          create: (_) => sl<ThemeBloc>()..add(const InitializeTheme()),
+        ),
+        Provider<ProjectRepositoryImpl>(
+          create: (_) => sl<ProjectRepositoryImpl>(),
         ),
         BlocProvider<ProjectBloc>(
           create: (_) => sl<ProjectBloc>(),

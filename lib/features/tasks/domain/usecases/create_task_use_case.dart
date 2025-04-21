@@ -1,13 +1,13 @@
-import 'package:tictask/features/tasks/domain/entities/task.dart';
+import 'package:tictask/features/tasks/domain/entities/task_entity.dart';
 import 'package:tictask/features/tasks/domain/repositories/i_task_repository.dart';
 import 'package:uuid/uuid.dart';
 
 class CreateTaskUseCase {
   final ITaskRepository _repository;
   final Uuid _uuid;
-  
+
   CreateTaskUseCase(this._repository, this._uuid);
-  
+
   Future<void> execute({
     required String title,
     required DateTime startDate,
@@ -19,7 +19,7 @@ class CreateTaskUseCase {
     DateTime? reminderTime,
     String projectId = 'inbox',
   }) async {
-    final task = Task(
+    final task = TaskEntity(
       id: _uuid.v4(),
       title: title,
       description: description,
@@ -35,7 +35,7 @@ class CreateTaskUseCase {
       reminderTime: reminderTime?.millisecondsSinceEpoch,
       projectId: projectId,
     );
-    
+
     await _repository.saveTask(task);
   }
 }

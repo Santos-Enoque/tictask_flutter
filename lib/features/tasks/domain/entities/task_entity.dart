@@ -1,13 +1,8 @@
 // lib/features/tasks/domain/entities/task.dart
 import 'package:equatable/equatable.dart';
+import 'package:tictask/app/constants/enums.dart';
 
-enum TaskStatus {
-  todo,
-  inProgress,
-  completed
-}
-
-class Task extends Equatable {
+class TaskEntity extends Equatable {
   final String id;
   final String title;
   final String? description;
@@ -24,7 +19,7 @@ class Task extends Equatable {
   final int? reminderTime;
   final String projectId;
 
-  const Task({
+  const TaskEntity({
     required this.id,
     required this.title,
     required this.status,
@@ -43,14 +38,14 @@ class Task extends Equatable {
   });
 
   // Returns a new task marked as in progress
-  Task markAsInProgress() {
+  TaskEntity markAsInProgress() {
     return copyWith(
       status: TaskStatus.inProgress,
     );
   }
 
   // Returns a new task marked as completed
-  Task markAsCompleted() {
+  TaskEntity markAsCompleted() {
     final now = DateTime.now().millisecondsSinceEpoch;
     return copyWith(
       status: TaskStatus.completed,
@@ -60,14 +55,14 @@ class Task extends Equatable {
   }
 
   // Returns a new task with incremented pomodoro count
-  Task incrementPomodoro() {
+  TaskEntity incrementPomodoro() {
     return copyWith(
       pomodorosCompleted: pomodorosCompleted + 1,
     );
   }
 
   // Create a copy with updated fields
-  Task copyWith({
+  TaskEntity copyWith({
     String? title,
     String? description,
     TaskStatus? status,
@@ -82,7 +77,7 @@ class Task extends Equatable {
     int? reminderTime,
     String? projectId,
   }) {
-    return Task(
+    return TaskEntity(
       id: id,
       title: title ?? this.title,
       description: description ?? this.description,
@@ -103,20 +98,20 @@ class Task extends Equatable {
 
   @override
   List<Object?> get props => [
-    id,
-    title,
-    description,
-    status,
-    createdAt,
-    updatedAt,
-    completedAt,
-    pomodorosCompleted,
-    estimatedPomodoros,
-    startDate,
-    endDate,
-    ongoing,
-    hasReminder,
-    reminderTime,
-    projectId,
-  ];
+        id,
+        title,
+        description,
+        status,
+        createdAt,
+        updatedAt,
+        completedAt,
+        pomodorosCompleted,
+        estimatedPomodoros,
+        startDate,
+        endDate,
+        ongoing,
+        hasReminder,
+        reminderTime,
+        projectId,
+      ];
 }

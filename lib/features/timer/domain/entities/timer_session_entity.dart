@@ -1,11 +1,18 @@
 // lib/features/timer/domain/entities/timer_session_entity.dart
 import 'package:equatable/equatable.dart';
 import 'package:uuid/uuid.dart';
+import 'package:hive/hive.dart';
+
+part 'timer_session_entity.g.dart';
 
 /// Type of timer session
+@HiveType(typeId: 6)
 enum SessionType {
+  @HiveField(0)
   pomodoro,
+  @HiveField(1)
   shortBreak,
+  @HiveField(2)
   longBreak
 }
 
@@ -32,7 +39,7 @@ class TimerSessionEntity extends Equatable {
   });
 
   // Factory method to create a completed session
-  static TimerSessionEntity completed({
+  static TimerSessionEntity createCompleted({
     required int startTime,
     required int endTime,
     required int duration,

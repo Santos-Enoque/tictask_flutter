@@ -1,5 +1,4 @@
 import 'package:hive/hive.dart';
-import 'package:flutter/material.dart';
 import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/features/settings/domain/entities/settings_entity.dart';
 

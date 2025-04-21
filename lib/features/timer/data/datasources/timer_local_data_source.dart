@@ -3,6 +3,7 @@ import 'package:tictask/app/constants/app_constants.dart';
 import 'package:tictask/features/timer/data/models/timer_config_model.dart';
 import 'package:tictask/features/timer/data/models/timer_session_model.dart';
 import 'package:tictask/features/timer/data/models/timer_state_model.dart';
+import 'package:tictask/features/timer/domain/entities/timer_entity.dart';
 import 'package:tictask/features/timer/domain/entities/timer_session_entity.dart';
 
 abstract class TimerLocalDataSource {

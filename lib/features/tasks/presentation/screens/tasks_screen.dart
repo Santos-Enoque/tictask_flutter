@@ -11,7 +11,7 @@ import 'package:tictask/core/utils/logger.dart';
 import 'package:tictask/features/projects/models/project.dart';
 import 'package:tictask/features/projects/repositories/project_repository.dart';
 import 'package:tictask/features/tasks/presentation/bloc/task_bloc.dart';
-import 'package:tictask/features/tasks/domain/entities/task.dart'
+import 'package:tictask/features/tasks/domain/entities/task_entity.dart'
     hide TaskStatus;
 import 'package:tictask/features/tasks/models/task.dart' as task_model;
 import 'package:tictask/features/tasks/presentation/widgets/date_scroll_picker.dart';
@@ -263,7 +263,7 @@ class _TasksScreenState extends State<TasksScreen> {
     }
   }
 
-  void _showTaskFormSheet({Task? task}) {
+  void _showTaskFormSheet({TaskEntity? task}) {
     // Convert domain Task to model Task if needed
     task_model.Task? modelTask;
     if (task != null) {
@@ -334,7 +334,7 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
-  Widget _buildTaskList(List<Task> tasks) {
+  Widget _buildTaskList(List<TaskEntity> tasks) {
     if (tasks.isEmpty) {
       return Center(
         child: Column(
@@ -357,7 +357,7 @@ class _TasksScreenState extends State<TasksScreen> {
     }
 
     // Group tasks by date
-    final tasksByDate = <DateTime, List<Task>>{};
+    final tasksByDate = <DateTime, List<TaskEntity>>{};
 
     for (final task in tasks) {
       // Use startDate instead of dueDate for grouping
@@ -434,7 +434,7 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
-  Widget _buildTaskStatusSection(String title, List<Task> tasks) {
+  Widget _buildTaskStatusSection(String title, List<TaskEntity> tasks) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -479,7 +479,7 @@ class _TasksScreenState extends State<TasksScreen> {
     }
   }
 
-  Widget _buildTaskItem(Task task) {
+  Widget _buildTaskItem(TaskEntity task) {
     final dateFormat = DateFormat('h:mm a');
     // Use startDate instead of dueDate for display
     final taskDate = DateTime.fromMillisecondsSinceEpoch(task.startDate);
@@ -683,7 +683,7 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
-  double _calculateCompletionPercentage(List<Task> tasks) {
+  double _calculateCompletionPercentage(List<TaskEntity> tasks) {
     if (tasks.isEmpty) return 0;
 
     var completedTasks = 0;
@@ -696,7 +696,7 @@ class _TasksScreenState extends State<TasksScreen> {
     return (completedTasks / tasks.length) * 100;
   }
 
-  Widget buildProjectInfo(Task task, BuildContext context) {
+  Widget buildProjectInfo(TaskEntity task, BuildContext context) {
     // This method could be refactored to use a ProjectBloc instead of direct repository access
     final projectRepository = GetIt.I<ProjectRepository>();
 

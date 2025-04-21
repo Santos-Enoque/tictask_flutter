@@ -2,7 +2,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:tictask/app/constants/app_constants.dart';
 import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/features/tasks/data/models/task_model.dart';
-import 'package:tictask/features/tasks/domain/entities/task.dart';
+import 'package:tictask/features/tasks/domain/entities/task_entity.dart';
 import 'package:tictask/features/tasks/domain/repositories/i_task_repository.dart';
 
 class TaskRepositoryImpl implements ITaskRepository {
@@ -33,19 +33,19 @@ class TaskRepositoryImpl implements ITaskRepository {
   }
 
   @override
-  Future<List<Task>> getAllTasks() async {
+  Future<List<TaskEntity>> getAllTasks() async {
     return _tasksBox.values.toList();
   }
 
   @override
-  Future<List<Task>> getIncompleteTasks() async {
+  Future<List<TaskEntity>> getIncompleteTasks() async {
     return _tasksBox.values
         .where((task) => task.status != TaskStatus.completed)
         .toList();
   }
 
   @override
-  Future<List<Task>> getTasksForDate(DateTime date) async {
+  Future<List<TaskEntity>> getTasksForDate(DateTime date) async {
     final startOfDay =
         DateTime(date.year, date.month, date.day).millisecondsSinceEpoch;
     final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59)
@@ -59,7 +59,7 @@ class TaskRepositoryImpl implements ITaskRepository {
   }
 
   @override
-  Future<List<Task>> getTasksInDateRange(
+  Future<List<TaskEntity>> getTasksInDateRange(
     DateTime startDate,
     DateTime endDate,
   ) async {
@@ -78,15 +78,15 @@ class TaskRepositoryImpl implements ITaskRepository {
   }
 
   @override
-  Future<Task?> getTaskById(String id) async {
+  Future<TaskEntity?> getTaskById(String id) async {
     return _tasksBox.get(id);
   }
 
   @override
-  Future<void> saveTask(Task task) async {
+  Future<void> saveTask(TaskEntity task) async {
     // Ensure we have a TaskModel
-    final taskModel = task is TaskModel 
-        ? task 
+    final taskModel = task is TaskModel
+        ? task
         : TaskModel(
             id: task.id,
             title: task.title,
@@ -104,7 +104,7 @@ class TaskRepositoryImpl implements ITaskRepository {
             reminderTime: task.reminderTime,
             projectId: task.projectId,
           );
-    
+
     await _tasksBox.put(task.id, taskModel);
   }
 
@@ -139,7 +139,7 @@ class TaskRepositoryImpl implements ITaskRepository {
 
   // Add method to get tasks by project
   @override
-  Future<List<Task>> getTasksByProject(String projectId) async {
+  Future<List<TaskEntity>> getTasksByProject(String projectId) async {
     return _tasksBox.values
         .where((task) => task.projectId == projectId)
         .toList();

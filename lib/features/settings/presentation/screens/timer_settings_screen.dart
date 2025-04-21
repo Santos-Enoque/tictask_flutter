@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tictask/app/theme/dimensions.dart';
 import 'package:tictask/features/timer/presentation/bloc/timer_bloc.dart';
-import 'package:tictask/features/timer/models/timer_config.dart';
-import 'package:tictask/features/timer/repositories/timer_repository.dart';
+import 'package:tictask/features/timer/domain/entities/timer_config_entity.dart';
 import 'package:tictask/injection_container.dart';
 
 class TimerSettingsScreen extends StatefulWidget {
@@ -14,15 +13,13 @@ class TimerSettingsScreen extends StatefulWidget {
 }
 
 class _TimerSettingsScreenState extends State<TimerSettingsScreen> {
-  final TimerRepository _timerRepository = sl<TimerRepository>();
-
   late int _pomoDuration;
   late int _shortBreakDuration;
   late int _longBreakDuration;
   late int _longBreakInterval;
 
   bool _isLoading = true;
-
+  
   @override
   void initState() {
     super.initState();
@@ -30,7 +27,10 @@ class _TimerSettingsScreenState extends State<TimerSettingsScreen> {
   }
 
   Future<void> _loadTimerConfig() async {
-    final config = await _timerRepository.getTimerConfig();
+    // Get the timer config from the BLoC
+    final timerBloc = sl<TimerBloc>();
+    final config = timerBloc.state.config;
+    
     setState(() {
       _pomoDuration = config.pomodoroDurationInMinutes;
       _shortBreakDuration = config.shortBreakDurationInMinutes;
@@ -45,18 +45,20 @@ class _TimerSettingsScreenState extends State<TimerSettingsScreen> {
       _isLoading = true;
     });
 
-    final newConfig = TimerConfig(
+    final timerBloc = sl<TimerBloc>();
+    final newConfig = TimerConfigEntity(
+      id: 'default',
       pomoDuration: _pomoDuration * 60,
       shortBreakDuration: _shortBreakDuration * 60,
       longBreakDuration: _longBreakDuration * 60,
       longBreakInterval: _longBreakInterval,
     );
 
-    await _timerRepository.saveTimerConfig(newConfig);
+    // Use the TimerConfigChanged event to save the new config
+    timerBloc.add(TimerConfigChanged(config: newConfig));
 
-    // Update timer bloc with new configuration
+    // Show success message
     if (mounted) {
-      context.read<TimerBloc>().add(TimerConfigChanged(config: newConfig));
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Timer settings saved'),

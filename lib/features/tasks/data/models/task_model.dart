@@ -1,10 +1,9 @@
 // lib/features/tasks/data/models/task_model.dart
 import 'package:hive/hive.dart';
-import 'package:tictask/features/tasks/domain/entities/task.dart';
+import 'package:tictask/features/tasks/domain/entities/task_entity.dart';
 
 @HiveType(typeId: 10)
-class TaskModel extends Task {
-
+class TaskModel extends TaskEntity {
   // Create from JSON
   factory TaskModel.fromJson(Map<String, dynamic> json) {
     return TaskModel(

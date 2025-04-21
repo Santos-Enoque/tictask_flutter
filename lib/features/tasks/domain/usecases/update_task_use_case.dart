@@ -1,4 +1,4 @@
-import 'package:tictask/features/tasks/domain/entities/task.dart';
+import 'package:tictask/features/tasks/domain/entities/task_entity.dart';
 import 'package:tictask/features/tasks/domain/repositories/i_task_repository.dart';
 
 class UpdateTaskUseCase {

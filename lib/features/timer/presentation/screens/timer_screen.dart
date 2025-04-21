@@ -9,6 +9,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tictask/app/constants/enums.dart';
 import 'package:tictask/app/routes/routes.dart';
+import 'package:tictask/app/theme/colors.dart';
 import 'package:tictask/app/theme/dimensions.dart';
 import 'package:tictask/core/services/window_service.dart';
 import 'package:tictask/features/projects/domain/entities/project_entity.dart';
@@ -17,7 +18,7 @@ import 'package:tictask/features/projects/presentation/widgets/project_form_widg
 import 'package:tictask/features/tasks/domain/entities/task_entity.dart';
 import 'package:tictask/features/tasks/domain/repositories/i_task_repository.dart';
 import 'package:tictask/features/tasks/presentation/bloc/task_bloc.dart';
-import 'package:tictask/features/timer/domain/entities/timer_entity.dart' as domain;
+import 'package:tictask/features/timer/domain/entities/timer_entity.dart';
 import 'package:tictask/features/timer/presentation/bloc/timer_bloc.dart';
 import 'package:tictask/features/timer/presentation/widgets/timer_display.dart';
 import 'package:tictask/injection_container.dart';
@@ -58,7 +59,7 @@ class TimerScreen extends StatefulWidget {
 
 class _TimerScreenState extends State<TimerScreen> {
   // Add a field to store the task future
-  Future<Task?>? _taskFuture;
+  Future<TaskEntity?>? _taskFuture;
   String? _currentTaskId;
   bool _hasInitializedTask = false;
   late ITaskRepository _taskRepository;
@@ -385,7 +386,7 @@ class _TimerScreenState extends State<TimerScreen> {
           String statusText;
           Color statusColor;
 
-          if (state.timerMode == domain.TimerMode.focus) {
+          if (state.timerMode == TimerMode.focus) {
             statusText = 'Focus Time';
             statusColor = Theme.of(context).colorScheme.primary;
           } else {
@@ -531,7 +532,7 @@ class _TimerScreenState extends State<TimerScreen> {
           String statusText;
           Color statusColor;
 
-          if (state.timerMode == domain.TimerMode.focus) {
+          if (state.timerMode == TimerMode.focus) {
             statusText = 'Focus Time';
             statusColor = Theme.of(context).colorScheme.primary;
           } else {
@@ -550,7 +551,7 @@ class _TimerScreenState extends State<TimerScreen> {
                   children: [
                     // Task name if available
                     if (_currentTaskId != null)
-                      FutureBuilder<Task?>(
+                      FutureBuilder<TaskEntity?>(
                         future: _taskFuture,
                         builder: (context, snapshot) {
                           if (snapshot.hasData && snapshot.data != null) {
@@ -619,7 +620,7 @@ class _TimerScreenState extends State<TimerScreen> {
           String statusText;
           Color statusColor;
 
-          if (state.timerMode == domain.TimerMode.focus) {
+          if (state.timerMode == TimerMode.focus) {
             statusText = 'Focus';
             statusColor = Theme.of(context).colorScheme.primary;
           } else {
@@ -691,7 +692,7 @@ class _TimerScreenState extends State<TimerScreen> {
             _taskFuture != null &&
             state.currentTaskId != null) {
           // Show current task when timer is active
-          return FutureBuilder<Task?>(
+          return FutureBuilder<TaskEntity?>(
             future: _taskFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -716,7 +717,7 @@ class _TimerScreenState extends State<TimerScreen> {
         }
 
         // Show dropdown when timer is not active
-        return FutureBuilder<List<Task>>(
+        return FutureBuilder<List<TaskEntity>>(
           future: Future.value(
             _taskRepository.getAllTasks().then(
               (tasks) {
@@ -836,7 +837,7 @@ class _TimerScreenState extends State<TimerScreen> {
 
             // Projects list with Inbox at top
             Expanded(
-              child: FutureBuilder<List<Project>>(
+              child: FutureBuilder<List<ProjectEntity>>(
                 key: ValueKey('projects-$_projectsRefreshCounter'),
                 future: Future(() async {
                   await Future.delayed(const Duration(milliseconds: 100));
@@ -858,8 +859,8 @@ class _TimerScreenState extends State<TimerScreen> {
                   final projects = snapshot.data!;
 
                   // Separate Inbox from other projects
-                  Project? inboxProject;
-                  final otherProjects = <Project>[];
+                  ProjectEntity? inboxProject;
+                  final otherProjects = <ProjectEntity>[];
 
                   for (final project in projects) {
                     if (project.id == 'inbox') {
@@ -893,7 +894,7 @@ class _TimerScreenState extends State<TimerScreen> {
   // New helper method to build project items with popup menu
   Widget _buildProjectItem(
     BuildContext context,
-    Project project, {
+    ProjectEntity project, {
     bool isInbox = false,
   }) {
     return ListTile(
@@ -944,9 +945,9 @@ class _TimerScreenState extends State<TimerScreen> {
                   value: 'delete',
                   child: Row(
                     children: [
-                      Icon(Icons.delete, size: 18, color: Colors.red),
+                      Icon(Icons.delete, size: 18, color: AppColors.lightError),
                       SizedBox(width: 8),
-                      Text('Delete', style: TextStyle(color: Colors.red)),
+                      Text('Delete', style: TextStyle(color: AppColors.lightError)),
                     ],
                   ),
                 ),
@@ -962,7 +963,7 @@ class _TimerScreenState extends State<TimerScreen> {
   }
 
   // Method to show edit project modal
-  void _showEditProjectModal(BuildContext context, Project project) {
+  void _showEditProjectModal(BuildContext context, ProjectEntity project) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -982,7 +983,7 @@ class _TimerScreenState extends State<TimerScreen> {
   }
 
   // Method to confirm and delete project
-  void _showDeleteProjectConfirmation(BuildContext context, Project project) {
+  void _showDeleteProjectConfirmation(BuildContext context, ProjectEntity project) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -996,7 +997,7 @@ class _TimerScreenState extends State<TimerScreen> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppColors.lightError),
             onPressed: () async {
               Navigator.pop(context);
               // Delete the project
@@ -1095,7 +1096,7 @@ class _TimerScreenState extends State<TimerScreen> {
     if (state.status == TimerUIStatus.finished ||
         state.status == TimerUIStatus.breakReady) {
       // Focus ended, show break options
-      if (state.timerMode == domain.TimerMode.focus) {
+      if (state.timerMode == TimerMode.focus) {
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -1313,18 +1314,18 @@ class _TimerScreenState extends State<TimerScreen> {
       children: [
         IconButton(
           icon: const Icon(Icons.play_arrow),
-          onPressed: () => state.timerMode == domain.TimerMode.focus
+          onPressed: () => state.timerMode == TimerMode.focus
               ? context.read<TimerBloc>().add(const TimerStarted())
               : context.read<TimerBloc>().add(const TimerBreakStarted()),
           iconSize: 28,
-          color: state.timerMode == domain.TimerMode.focus
+          color: state.timerMode == TimerMode.focus
               ? primaryColor
               : secondaryColor,
         ),
         const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.skip_next),
-          onPressed: () => state.timerMode == domain.TimerMode.focus
+          onPressed: () => state.timerMode == TimerMode.focus
               ? context.read<TimerBloc>().add(const TimerBreakStarted())
               : context.read<TimerBloc>().add(const TimerBreakSkipped()),
           iconSize: 28,
