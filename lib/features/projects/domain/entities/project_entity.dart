@@ -34,17 +34,17 @@ class ProjectEntity extends Equatable {
       ];
 
   // Factory for creating the default Inbox project
-  factory ProjectEntity.inbox() {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    return ProjectEntity(
-      id: 'inbox',
-      name: 'Inbox',
-      description: 'Default project for all tasks',
-      emoji: '📥', // Mailbox emoji
-      color: 0xFF4A6572, // Default color
-      createdAt: now,
-      updatedAt: now,
-      isDefault: true,
-    );
-  }
+  // factory ProjectEntity.inbox() {
+  //   final now = DateTime.now().millisecondsSinceEpoch;
+  //   return ProjectEntity(
+  //     id: 'inbox',
+  //     name: 'Inbox',
+  //     description: 'Default project for all tasks',
+  //     emoji: '📥', // Mailbox emoji
+  //     color: 0xFF4A6572, // Default color
+  //     createdAt: now,
+  //     updatedAt: now,
+  //     isDefault: true,
+  //   );
+  // }
 }

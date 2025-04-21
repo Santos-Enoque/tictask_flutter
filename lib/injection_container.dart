@@ -15,6 +15,9 @@ import 'package:tictask/features/timer/domain/entities/timer_entity.dart';
 import 'package:tictask/features/projects/data/models/project_model.dart';
 import 'package:tictask/features/tasks/data/models/task_model.dart';
 import 'package:tictask/core/services/sync_service.dart';
+import 'package:tictask/features/tasks/domain/repositories/i_task_repository.dart';
+import 'package:tictask/features/projects/domain/repositories/i_syncable_project_repository.dart';
+import 'package:tictask/features/timer/domain/repositories/i_syncable_timer_repository.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -41,6 +44,13 @@ Future<void> init() async {
   await registerTimerFeature();
   await registerProjectFeature();
   await registerSettingsFeature();
+
+  // Set repositories in SyncService
+  sl<SyncService>().setRepositories(
+    taskRepository: sl<ITaskRepository>(),
+    projectRepository: sl<ISyncableProjectRepository>(),
+    timerRepository: sl<ISyncableTimerRepository>(),
+  );
 }
 
 // Register all Hive adapters

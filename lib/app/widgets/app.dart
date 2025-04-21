@@ -7,6 +7,7 @@ import 'package:tictask/app/theme/bloc/theme_bloc.dart';
 import 'package:tictask/core/services/auth_service.dart';
 import 'package:tictask/app/theme/themes/dark_theme.dart';
 import 'package:tictask/app/theme/themes/light_theme.dart';
+import 'package:tictask/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:tictask/features/projects/data/repositories/project_repository_impl.dart';
 import 'package:tictask/features/projects/presentation/bloc/project_bloc.dart';
 import 'package:tictask/features/tasks/domain/repositories/i_task_repository.dart';
@@ -44,7 +45,7 @@ class _AppState extends State<App> {
     return MultiBlocProvider(
       providers: [
         // Global BLoC providers
-
+        BlocProvider<AuthBloc>(create: (_) => sl<AuthBloc>()),
         BlocProvider<TimerBloc>(
           create: (_) => sl<TimerBloc>(),
         ),

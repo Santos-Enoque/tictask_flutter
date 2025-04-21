@@ -16,9 +16,6 @@ class ProjectLocalDataSourceImpl implements ProjectLocalDataSource {
   @override
   Future<void> init() async {
     try {
-      // Clear existing box first
-      await Hive.deleteBoxFromDisk(StorageConstants.projectsBox);
-
       // Register class adapters
       if (!Hive.isAdapterRegistered(11)) {
         Hive.registerAdapter(ProjectModelAdapter());

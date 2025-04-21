@@ -285,11 +285,17 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                                           ? 'Loading projects...'
                                           : _projects
                                               .firstWhere(
-                                                  (p) =>
-                                                      p.id ==
-                                                      _selectedProjectId,
-                                                  orElse: () =>
-                                                      ProjectEntity.inbox())
+                                                (p) =>
+                                                    p.id == _selectedProjectId,
+                                                orElse: () => const ProjectEntity(
+                                                  id: 'inbox',
+                                                  name: 'Inbox',
+                                                  color: 0xFF4A6572,
+                                                  createdAt: 0,
+                                                  updatedAt: 0,
+                                                  isDefault: true,
+                                                ),
+                                              )
                                               .name,
                                       style: TextStyle(color: textColor),
                                     ),
