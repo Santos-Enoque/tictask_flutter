@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tictask/app/theme/colors.dart';
+import 'package:tictask/features/projects/domain/entities/project_entity.dart';
 import 'package:tictask/features/projects/presentation/bloc/project_bloc.dart';
-import 'package:tictask/features/projects/models/project.dart';
 
 class ProjectFormSheet extends StatefulWidget {
   const ProjectFormSheet({
@@ -11,7 +11,7 @@ class ProjectFormSheet extends StatefulWidget {
     this.project,
   });
 
-  final Project? project;
+  final ProjectEntity? project;
   final VoidCallback onComplete;
 
   @override

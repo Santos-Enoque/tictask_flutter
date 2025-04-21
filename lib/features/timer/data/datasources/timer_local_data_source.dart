@@ -1,5 +1,6 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:tictask/app/constants/app_constants.dart';
+import 'package:tictask/core/constants/storage_constants.dart';
 import 'package:tictask/features/timer/data/models/timer_config_model.dart';
 import 'package:tictask/features/timer/data/models/timer_session_model.dart';
 import 'package:tictask/features/timer/data/models/timer_state_model.dart';
@@ -62,6 +63,14 @@ class TimerLocalDataSourceImpl implements TimerLocalDataSource {
       // Register adapters if not already registered
       _registerAdapters();
 
+      // Clear existing boxes first to remove any corrupted data
+      // await Hive.deleteBoxFromDisk(_configBoxName);
+      // await Hive.deleteBoxFromDisk(_stateBoxName);
+      // await Hive.deleteBoxFromDisk(_sessionsBoxName);
+      // await Hive.deleteBoxFromDisk(StorageConstants.projectsBox);
+      // await Hive.deleteBoxFromDisk(StorageConstants.tasksBox);
+      // await Hive.deleteBoxFromDisk(StorageConstants.settingsBox);
+
       // Open boxes
       _configBox = await Hive.openBox<TimerConfigModel>(_configBoxName);
       _stateBox = await Hive.openBox<TimerStateModel>(_stateBoxName);
@@ -114,12 +123,12 @@ class TimerLocalDataSourceImpl implements TimerLocalDataSource {
   }
 
   void _registerAdapters() {
-    // Register adapters for TimerStatus and TimerMode if not already registered
+    // Register adapters for TimerMode and TimerStatus in correct order
     if (!Hive.isAdapterRegistered(4)) {
-      Hive.registerAdapter(TimerStatusAdapter());
+      Hive.registerAdapter(TimerModeAdapter());
     }
     if (!Hive.isAdapterRegistered(5)) {
-      Hive.registerAdapter(TimerModeAdapter());
+      Hive.registerAdapter(TimerStatusAdapter());
     }
     if (!Hive.isAdapterRegistered(6)) {
       Hive.registerAdapter(SessionTypeAdapter());

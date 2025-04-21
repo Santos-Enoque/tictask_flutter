@@ -9,7 +9,6 @@ import 'package:tictask/core/services/init_supabase.dart';
 import 'package:tictask/core/services/notification_service.dart';
 import 'package:tictask/core/services/window_service.dart';
 import 'package:tictask/core/utils/logger.dart';
-import 'package:tictask/features/google_calendar/google_calendar_module.dart'; // Add this import
 import 'package:tictask/injection_container.dart' as di;
 
 class AppBlocObserver extends BlocObserver {
@@ -55,14 +54,7 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
   // Initialize dependency injection - this must be after Hive and Supabase
   await di.init();
   
-  // Initialize Google Calendar module
-  try {
-    await registerGoogleCalendarModule();
-    AppLogger.i('Google Calendar module initialized successfully');
-  } catch (e, stack) {
-    // Don't let Google Calendar initialization failure crash the app
-    AppLogger.e('Failed to initialize Google Calendar module', e, stack);
-  }
+ 
   
   // Set up error handling
   FlutterError.onError = (FlutterErrorDetails details) {

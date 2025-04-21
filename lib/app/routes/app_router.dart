@@ -9,7 +9,6 @@ import 'package:tictask/app/screens/not_found_screen.dart';
 import 'package:tictask/core/services/auth_service.dart';
 import 'package:tictask/core/services/window_service.dart';
 import 'package:tictask/features/auth/presentation/screens/login_screen.dart';
-import 'package:tictask/features/google_calendar/screens/calendar_settings_screen.dart';
 import 'package:tictask/features/settings/presentation/screens/window_settings_screen.dart';
 import 'package:tictask/features/timer/presentation/screens/timer_screen.dart';
 import 'package:tictask/features/settings/presentation/screens/timer_settings_screen.dart';
@@ -115,10 +114,10 @@ GoRouter getAppRouter() {
             builder: (context, state) => const TimerSettingsScreen(),
           ),
               // Add Google Calendar settings route
-          GoRoute(
-            path: 'calendar',
-            builder: (context, state) => const CalendarSettingsScreen(),
-          ),
+          // GoRoute(
+          //   path: 'calendar',
+          //   builder: (context, state) => const CalendarSettingsScreen(),
+          // ),
         ],
       ),
       GoRoute(

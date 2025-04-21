@@ -1,4 +1,3 @@
-
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tictask/core/services/auth_service.dart';
@@ -22,61 +21,57 @@ Future<void> registerProjectFeature() async {
   sl.registerLazySingleton<ProjectLocalDataSource>(
     () => ProjectLocalDataSourceImpl(),
   );
-  
+
   // Get user ID for remote data source
   final authService = sl<AuthService>();
   final userId = authService.userId ?? '';
-  
+
   sl.registerLazySingleton<ProjectRemoteDataSource>(
     () => ProjectRemoteDataSourceImpl(
       supabase: Supabase.instance.client,
       userId: userId,
     ),
   );
-  
-  // Repositories
+
+  // Initialize local data source once
   final localDataSource = sl<ProjectLocalDataSource>();
   await localDataSource.init();
-  
+
   // Base repository (non-syncable)
-  final projectRepository = ProjectRepositoryImpl(localDataSource);
   sl.registerLazySingleton<IProjectRepository>(
-    () => projectRepository,
+    () => ProjectRepositoryImpl(localDataSource),
   );
-  
+
   // Syncable repository
-  final syncableProjectRepository = SyncableProjectRepositoryImpl(
-    localDataSource: localDataSource,
-    remoteDataSource: sl<ProjectRemoteDataSource>(),
-    authService: sl<AuthService>(),
-  );
-  await syncableProjectRepository.init();
-  
   sl.registerLazySingleton<ISyncableProjectRepository>(
-    () => syncableProjectRepository,
+    () => SyncableProjectRepositoryImpl(
+      localDataSource: localDataSource,
+      remoteDataSource: sl<ProjectRemoteDataSource>(),
+      authService: sl<AuthService>(),
+    ),
   );
-  
+
   // Use cases
   sl.registerLazySingleton(
     () => GetAllProjectsUseCase(sl<ISyncableProjectRepository>()),
   );
-  
+
   sl.registerLazySingleton(
     () => GetProjectByIdUseCase(sl<ISyncableProjectRepository>()),
   );
-  
+
   sl.registerLazySingleton(
     () => AddProjectUseCase(sl<ISyncableProjectRepository>()),
   );
-  
+
   sl.registerLazySingleton(
     () => UpdateProjectUseCase(sl<ISyncableProjectRepository>()),
   );
-  
+
   sl.registerLazySingleton(
     () => DeleteProjectUseCase(sl<ISyncableProjectRepository>()),
   );
-  
+
   // BLoC
   sl.registerFactory(
     () => ProjectBloc(

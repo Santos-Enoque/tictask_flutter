@@ -1,4 +1,3 @@
-
 import 'package:equatable/equatable.dart';
 import 'package:hive/hive.dart';
 import 'package:tictask/features/projects/domain/entities/project_entity.dart';
@@ -8,16 +7,57 @@ part 'project_model.g.dart';
 
 @HiveType(typeId: 11)
 class ProjectModel extends ProjectEntity {
+  @HiveField(0)
+  @override
+  final String id;
+
+  @HiveField(1)
+  @override
+  final String name;
+
+  @HiveField(2)
+  @override
+  final int color;
+
+  @HiveField(3)
+  @override
+  final int createdAt;
+
+  @HiveField(4)
+  @override
+  final int updatedAt;
+
+  @HiveField(5)
+  @override
+  final String? emoji;
+
+  @HiveField(6)
+  @override
+  final String? description;
+
+  @HiveField(7)
+  @override
+  final bool isDefault;
+
   const ProjectModel({
-    required super.id,
-    required super.name,
-    required super.color,
-    required super.createdAt,
-    required super.updatedAt,
-    super.description,
-    super.emoji,
-    super.isDefault = false,
-  });
+    required this.id,
+    required this.name,
+    required this.color,
+    required this.createdAt,
+    required this.updatedAt,
+    this.description,
+    this.emoji,
+    this.isDefault = false,
+  }) : super(
+          id: id,
+          name: name,
+          color: color,
+          createdAt: createdAt,
+          updatedAt: updatedAt,
+          description: description,
+          emoji: emoji,
+          isDefault: isDefault,
+        );
 
   // Factory method to create a new project
   factory ProjectModel.create({
@@ -89,7 +129,7 @@ class ProjectModel extends ProjectEntity {
       isDefault: isDefault ?? this.isDefault,
     );
   }
-  
+
   // Convert to map for API
   Map<String, dynamic> toJson({String? userId}) {
     return {

@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:tictask/core/services/auth_service.dart';
-import 'package:tictask/features/projects/repositories/syncable_project_repository.dart';
-import 'package:tictask/features/tasks/repositories/syncable_task_repository.dart';
 import 'package:tictask/features/timer/domain/repositories/i_syncable_timer_repository.dart';
+import 'package:tictask/features/tasks/domain/repositories/i_task_repository.dart';
+import 'package:tictask/features/projects/domain/repositories/i_syncable_project_repository.dart';
 import 'package:tictask/core/utils/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -34,8 +34,8 @@ class SyncService {
   final Connectivity _connectivity = Connectivity();
 
   // Repositories to sync
-  late final SyncableTaskRepository _taskRepository;
-  late final SyncableProjectRepository _projectRepository;
+  late final ITaskRepository _taskRepository;
+  late final ISyncableProjectRepository _projectRepository;
   late final ISyncableTimerRepository _timerRepository;
 
   // Internal state
@@ -84,7 +84,8 @@ class SyncService {
   }
 
   // Handle connectivity changes
-  void _handleConnectivityChange(ConnectivityResult result) {
+  void _handleConnectivityChange(List<ConnectivityResult> results) {
+    final result = results.first;
     if (result == ConnectivityResult.none) {
       _status = SyncStatus.offline;
       _syncStatusController.add(_status);
@@ -128,10 +129,10 @@ class SyncService {
     _syncTimer = null;
   }
 
-  // Set repositories 
+  // Set repositories
   void setRepositories({
-    required SyncableTaskRepository taskRepository,
-    required SyncableProjectRepository projectRepository,
+    required ITaskRepository taskRepository,
+    required ISyncableProjectRepository projectRepository,
     required ISyncableTimerRepository timerRepository,
   }) {
     _taskRepository = taskRepository;

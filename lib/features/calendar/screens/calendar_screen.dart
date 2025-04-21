@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
-import 'package:tictask/features/projects/models/project.dart';
-import 'package:tictask/features/projects/repositories/project_repository.dart';
+import 'package:tictask/features/projects/domain/entities/project_entity.dart';
+import 'package:tictask/features/projects/domain/repositories/i_project_repository.dart';
+import 'package:tictask/features/tasks/data/models/task_model.dart';
+import 'package:tictask/features/tasks/domain/entities/task_entity.dart';
+import 'package:tictask/features/tasks/domain/repositories/i_task_repository.dart';
 import 'package:tictask/features/tasks/presentation/bloc/task_bloc.dart';
-import 'package:tictask/features/tasks/models/task.dart';
-import 'package:tictask/features/tasks/repositories/task_repository.dart';
 import 'package:tictask/features/tasks/presentation/widgets/date_scroll_picker.dart';
 import 'package:tictask/features/tasks/presentation/widgets/task_form_sheet.dart';
+import 'package:tictask/injection_container.dart' as di;
+import 'package:uuid/uuid.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key, this.showNavBar = true});
@@ -20,20 +23,20 @@ class CalendarScreen extends StatefulWidget {
 }
 
 class _CalendarScreenState extends State<CalendarScreen> {
-  final TaskRepository _taskRepository = GetIt.I<TaskRepository>();
-  final ProjectRepository _projectRepository = GetIt.I<ProjectRepository>();
+  final ITaskRepository _taskRepository = di.sl<ITaskRepository>();
+  final IProjectRepository _projectRepository = di.sl<IProjectRepository>();
 
   CalendarView _calendarView = CalendarView.day;
   final CalendarController _calendarController = CalendarController();
 
   // Maps to store projects by ID for quick lookup
-  Map<String, Project> _projectsMap = {};
+  Map<String, ProjectEntity> _projectsMap = {};
 
   // Flag to track if data is loading
   bool _isLoading = true;
 
   // Add this property to the _CalendarScreenState class
-  List<Task> _tasks = [];
+  List<TaskEntity> _tasks = [];
 
   // Selected date for the calendar
   DateTime _selectedDate = DateTime.now();
@@ -122,7 +125,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   // Add this method to show the task form for editing
-  void _showEditTaskForm(Task task) {
+  void _showEditTaskForm(TaskEntity task) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -155,7 +158,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final taskBloc = context.read<TaskBloc>();
 
     // Create a task with the BLoC
-    final task = Task.create(
+    final task = TaskEntity.create(
+      id: const Uuid().v4(),
       title: 'New Task', // Default title that user can change
       startDate: start.millisecondsSinceEpoch,
       endDate: end.millisecondsSinceEpoch,
@@ -278,7 +282,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void _handleCalendarTap(CalendarTapDetails details) {
     if (details.targetElement == CalendarElement.appointment) {
       // User tapped on an existing task
-      final task = details.appointments![0] as Task;
+      final task = details.appointments![0] as TaskEntity;
       _showEditTaskForm(task);
     } else if (details.targetElement == CalendarElement.calendarCell) {
       // User tapped on an empty cell or time slot
@@ -304,7 +308,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     BuildContext context,
     CalendarAppointmentDetails details,
   ) {
-    final task = details.appointments.first as Task;
+    final task = details.appointments.first as TaskEntity;
     final project = _projectsMap[task.projectId];
     final projectColor = project != null
         ? Color(project.color)
@@ -375,33 +379,33 @@ class _CalendarScreenState extends State<CalendarScreen> {
 }
 
 class TaskDataSource extends CalendarDataSource {
-  TaskDataSource(List<Task> tasks, this._projectsMap) {
-    appointments = tasks; // Set the appointments directly
+  TaskDataSource(List<TaskEntity> tasks, this._projectsMap) {
+    appointments = tasks;
   }
 
-  final Map<String, Project> _projectsMap;
+  final Map<String, ProjectEntity> _projectsMap;
 
   @override
   DateTime getStartTime(int index) {
-    final task = appointments![index] as Task;
+    final task = appointments![index] as TaskEntity;
     return DateTime.fromMillisecondsSinceEpoch(task.startDate);
   }
 
   @override
   DateTime getEndTime(int index) {
-    final task = appointments![index] as Task;
+    final task = appointments![index] as TaskEntity;
     return DateTime.fromMillisecondsSinceEpoch(task.endDate);
   }
 
   @override
   String getSubject(int index) {
-    final task = appointments![index] as Task;
+    final task = appointments![index] as TaskEntity;
     return task.title;
   }
 
   @override
   Color getColor(int index) {
-    final task = appointments![index] as Task;
+    final task = appointments![index] as TaskEntity;
     final project = _projectsMap[task.projectId];
 
     if (project != null) {
@@ -414,7 +418,7 @@ class TaskDataSource extends CalendarDataSource {
 
   @override
   bool isAllDay(int index) {
-    final task = appointments![index] as Task;
+    final task = appointments![index] as TaskEntity;
     return task.ongoing;
   }
 }

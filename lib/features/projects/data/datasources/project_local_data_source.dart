@@ -1,4 +1,3 @@
-
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:tictask/core/constants/storage_constants.dart';
 import 'package:tictask/features/projects/data/models/project_model.dart';
@@ -17,13 +16,17 @@ class ProjectLocalDataSourceImpl implements ProjectLocalDataSource {
   @override
   Future<void> init() async {
     try {
+      // Clear existing box first
+      await Hive.deleteBoxFromDisk(StorageConstants.projectsBox);
+
       // Register class adapters
       if (!Hive.isAdapterRegistered(11)) {
         Hive.registerAdapter(ProjectModelAdapter());
       }
 
       // Open box
-      _projectsBox = await Hive.openBox<ProjectModel>(StorageConstants.projectsBox);
+      _projectsBox =
+          await Hive.openBox<ProjectModel>(StorageConstants.projectsBox);
 
       // Create default Inbox project if it doesn't exist
       if (_projectsBox.isEmpty) {
@@ -35,7 +38,8 @@ class ProjectLocalDataSourceImpl implements ProjectLocalDataSource {
     } catch (e) {
       print('Error initializing ProjectLocalDataSource: $e');
       // Create an empty box as fallback
-      _projectsBox = await Hive.openBox<ProjectModel>(StorageConstants.projectsBox);
+      _projectsBox =
+          await Hive.openBox<ProjectModel>(StorageConstants.projectsBox);
 
       // Ensure default project exists
       if (_projectsBox.get('inbox') == null) {

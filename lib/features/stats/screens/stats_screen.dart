@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:tictask/app/constants/enums.dart';
-import 'package:tictask/features/tasks/models/task.dart';
-import 'package:tictask/features/tasks/repositories/task_repository.dart';
-import 'package:tictask/features/projects/repositories/project_repository.dart';
+import 'package:tictask/features/tasks/domain/entities/task_entity.dart';
+import 'package:tictask/features/tasks/domain/repositories/i_task_repository.dart';
+import 'package:tictask/features/projects/domain/entities/project_entity.dart';
+import 'package:tictask/features/projects/domain/repositories/i_project_repository.dart';
+import 'package:tictask/injection_container.dart' as di;
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key, this.showNavBar = true});
@@ -18,11 +19,11 @@ class StatsScreen extends StatefulWidget {
 
 class _StatsScreenState extends State<StatsScreen>
     with SingleTickerProviderStateMixin {
-  final TaskRepository _taskRepository = GetIt.I<TaskRepository>();
-  final ProjectRepository _projectRepository = GetIt.I<ProjectRepository>();
+  final ITaskRepository _taskRepository = di.sl<ITaskRepository>();
+  final IProjectRepository _projectRepository = di.sl<IProjectRepository>();
 
   // Data for charts
-  List<Task> _tasks = [];
+  List<TaskEntity> _tasks = [];
   bool _isLoading = true;
   late TabController _tabController;
 

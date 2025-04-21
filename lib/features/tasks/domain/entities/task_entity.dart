@@ -37,6 +37,38 @@ class TaskEntity extends Equatable {
     this.projectId = 'inbox',
   });
 
+  // Factory method to create a new task
+  factory TaskEntity.create({
+    required String id,
+    required String title,
+    required int startDate,
+    required int endDate,
+    String? description,
+    int? estimatedPomodoros,
+    bool ongoing = false,
+    bool hasReminder = false,
+    int? reminderTime,
+    String projectId = 'inbox',
+  }) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return TaskEntity(
+      id: id,
+      title: title,
+      description: description,
+      status: TaskStatus.todo,
+      createdAt: now,
+      updatedAt: now,
+      pomodorosCompleted: 0,
+      estimatedPomodoros: estimatedPomodoros,
+      startDate: startDate,
+      endDate: endDate,
+      ongoing: ongoing,
+      hasReminder: hasReminder,
+      reminderTime: reminderTime,
+      projectId: projectId,
+    );
+  }
+
   // Returns a new task marked as in progress
   TaskEntity markAsInProgress() {
     return copyWith(
