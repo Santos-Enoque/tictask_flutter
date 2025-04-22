@@ -707,7 +707,7 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  // Replace _buildTaskDropdown method with this
+  // Replace _buildTaskDropdown method with this updated version
   Widget _buildTaskDropdown(BuildContext context) {
     return BlocBuilder<TimerBloc, TimerState>(
       builder: (context, state) {
@@ -748,10 +748,25 @@ class _TimerScreenState extends State<TimerScreen> {
         return FutureBuilder<List<Task>>(
           future: Future.value(
             _taskRepository.getAllTasks().then(
-                  (tasks) => tasks
-                      .where((task) => task.status != TaskStatus.completed)
-                      .toList(),
-                ),
+              (tasks) {
+                final now = DateTime.now();
+                final todayStart = DateTime(now.year, now.month, now.day)
+                    .millisecondsSinceEpoch;
+                final todayEnd =
+                    DateTime(now.year, now.month, now.day, 23, 59, 59)
+                        .millisecondsSinceEpoch;
+
+                return tasks.where((task) {
+                  // Include tasks that are either:
+                  // 1. Today's tasks with "To do" status
+                  // 2. Ongoing tasks regardless of date
+                  return (task.status == TaskStatus.todo &&
+                          task.startDate >= todayStart &&
+                          task.startDate <= todayEnd) ||
+                      (task.ongoing && task.status != TaskStatus.completed);
+                }).toList();
+              },
+            ),
           ),
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
@@ -759,16 +774,23 @@ class _TimerScreenState extends State<TimerScreen> {
             }
 
             final tasks = snapshot.data!;
-            return DropdownButton<String>(
-              value: _selectedTaskId ?? state.currentTaskId,
+
+            // Check if the current selected task ID exists in the tasks list
+            final currentId = _selectedTaskId ?? state.currentTaskId;
+            final taskExists =
+                currentId == null || tasks.any((task) => task.id == currentId);
+
+            return DropdownButton<String?>(
+              value: taskExists ? currentId : null,
               hint: const Text('Select Task'),
               underline: Container(),
               items: [
-                const DropdownMenuItem<String>(
+                const DropdownMenuItem<String?>(
+                  value: null,
                   child: Text('No Task'),
                 ),
                 ...tasks.map(
-                  (task) => DropdownMenuItem<String>(
+                  (task) => DropdownMenuItem<String?>(
                     value: task.id,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
