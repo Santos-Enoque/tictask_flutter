@@ -16,14 +16,26 @@ class WindowSettingsScreen extends StatefulWidget {
 class _WindowSettingsScreenState extends State<WindowSettingsScreen> {
   // Window size presets
   final List<Map<String, dynamic>> _windowSizePresets = [
-    {'name': 'Small (Phone)', 'value': 'small', 'size': WindowService.windowSizePresets['small']!},
-    {'name': 'Medium (Tablet)', 'value': 'medium', 'size': WindowService.windowSizePresets['medium']!},
-    {'name': 'Large (Desktop)', 'value': 'large', 'size': WindowService.windowSizePresets['large']!},
+    {
+      'name': 'Small (Phone)',
+      'value': 'small',
+      'size': WindowService.windowSizePresets['small']!
+    },
+    {
+      'name': 'Medium (Tablet)',
+      'value': 'medium',
+      'size': WindowService.windowSizePresets['medium']!
+    },
+    {
+      'name': 'Large (Desktop)',
+      'value': 'large',
+      'size': WindowService.windowSizePresets['large']!
+    },
   ];
 
   // Current window size
   Size _windowSize = WindowService.defaultWindowSize;
-  
+
   // Selected preset
   String? _selectedPreset;
 
@@ -48,8 +60,10 @@ class _WindowSettingsScreenState extends State<WindowSettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _windowSize = Size(
-        prefs.getDouble('window_width') ?? WindowService.defaultWindowSize.width,
-        prefs.getDouble('window_height') ?? WindowService.defaultWindowSize.height,
+        prefs.getDouble('window_width') ??
+            WindowService.defaultWindowSize.width,
+        prefs.getDouble('window_height') ??
+            WindowService.defaultWindowSize.height,
       );
       _alwaysOnTop = prefs.getBool('window_always_on_top') ?? false;
       _resizable = prefs.getBool('window_resizable') ?? false;
@@ -63,17 +77,18 @@ class _WindowSettingsScreenState extends State<WindowSettingsScreen> {
 
     // Only enable resizable when in settings
     await WindowService.setResizable(true);
-    
+
     // Apply the preset size
     await WindowService.setWindowSizePreset(presetName);
-    
+
     // Reload settings
     await _loadSettings();
-    
+
     // Show success message
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Window size set to ${_getPresetName(presetName)}')),
+        SnackBar(
+            content: Text('Window size set to ${_getPresetName(presetName)}')),
       );
     }
   }
@@ -84,14 +99,14 @@ class _WindowSettingsScreenState extends State<WindowSettingsScreen> {
 
     // Only enable resizable when in settings
     await WindowService.setResizable(true);
-    
+
     // Apply custom size
     await WindowService.setWindowSize(_windowSize);
-    
+
     // Clear preset selection
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('window_preset');
-    
+
     setState(() {
       _selectedPreset = null;
     });
@@ -204,12 +219,12 @@ class _WindowSettingsScreenState extends State<WindowSettingsScreen> {
                     children: _windowSizePresets.map((preset) {
                       final String presetValue = preset['value'] as String;
                       final bool isSelected = _selectedPreset == presetValue;
-                      
+
                       return ElevatedButton(
                         onPressed: () => _applyWindowSizePreset(presetValue),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isSelected 
-                              ? Theme.of(context).colorScheme.primary 
+                          backgroundColor: isSelected
+                              ? Theme.of(context).colorScheme.primary
                               : null,
                           foregroundColor: isSelected
                               ? Theme.of(context).colorScheme.onPrimary
@@ -309,7 +324,7 @@ class _WindowSettingsScreenState extends State<WindowSettingsScreen> {
                     style: AppTextStyles.titleMedium(context),
                   ),
                   const SizedBox(height: AppDimensions.md),
-                  
+
                   // Resizable option
                   SwitchListTile(
                     title: const Text('Enable Resizing'),
@@ -319,7 +334,7 @@ class _WindowSettingsScreenState extends State<WindowSettingsScreen> {
                     value: _resizable,
                     onChanged: _setResizable,
                   ),
-                  
+
                   // Always on top
                   SwitchListTile(
                     title: const Text('Always on Top'),
@@ -329,7 +344,7 @@ class _WindowSettingsScreenState extends State<WindowSettingsScreen> {
                     value: _alwaysOnTop,
                     onChanged: _setAlwaysOnTop,
                   ),
-                  
+
                   // Center window
                   ListTile(
                     title: const Text('Center Window'),
@@ -358,8 +373,7 @@ class _WindowSettingsScreenState extends State<WindowSettingsScreen> {
                 builder: (context) => AlertDialog(
                   title: const Text('Reset Window Settings'),
                   content: const Text(
-                    'This will reset all window settings to default values. Continue?'
-                  ),
+                      'This will reset all window settings to default values. Continue?'),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context, false),
@@ -372,13 +386,14 @@ class _WindowSettingsScreenState extends State<WindowSettingsScreen> {
                   ],
                 ),
               );
-              
+
               if (confirm == true) {
                 await WindowService.resetToDefaults();
                 await _loadSettings();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Window settings reset to defaults')),
+                    const SnackBar(
+                        content: Text('Window settings reset to defaults')),
                   );
                 }
               }

@@ -114,7 +114,7 @@ GoRouter getAppRouter() {
             path: 'timer',
             builder: (context, state) => const TimerSettingsScreen(),
           ),
-              // Add Google Calendar settings route
+          // Add Google Calendar settings route
           GoRoute(
             path: 'calendar',
             builder: (context, state) => const CalendarSettingsScreen(),
